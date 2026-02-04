@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manager Verification Dashboard v2.0</title>
+    <title>Manager Verification Dashboard v2.1 - Daily Reporting</title>
     
     <!-- Libraries -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
     <style>
         :root {
@@ -21,6 +20,7 @@
             --warning: #f72585;
             --danger: #ff0054;
             --info: #4895ef;
+            --manager: #06d6a0;
             --dark: #212529;
             --light: #f8f9fa;
             --border: #dee2e6;
@@ -43,11 +43,7 @@
             transition: all 0.3s ease;
         }
 
-        body.locked {
-            overflow: hidden;
-        }
-
-        /* Layout */
+        /* Dashboard Layout */
         .app-container {
             display: flex;
             min-height: 100vh;
@@ -64,11 +60,6 @@
             overflow-y: auto;
             box-shadow: 4px 0 15px rgba(0,0,0,0.1);
             z-index: 1000;
-            transition: transform 0.3s ease;
-        }
-
-        .sidebar.collapsed {
-            transform: translateX(-100%);
         }
 
         .sidebar-header {
@@ -108,11 +99,6 @@
             transform: translateX(5px);
         }
 
-        .nav-item i {
-            width: 20px;
-            text-align: center;
-        }
-
         .agent-profile {
             margin-top: auto;
             padding-top: 20px;
@@ -133,16 +119,22 @@
             font-weight: bold;
         }
 
+        .manager-badge {
+            background: var(--manager);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+
         /* Main Content */
         .main-content {
             flex: 1;
             margin-left: var(--sidebar-width);
             padding: 20px;
-            transition: margin-left 0.3s ease;
-        }
-
-        .main-content.expanded {
-            margin-left: 0;
+            min-width: 0;
         }
 
         /* Header */
@@ -197,7 +189,6 @@
             position: relative;
             overflow: hidden;
             transition: all 0.3s ease;
-            border-left: 5px solid transparent;
         }
 
         .stat-card:hover {
@@ -243,154 +234,6 @@
             margin-bottom: 5px;
         }
 
-        .stat-change {
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-
-        .change-positive { color: var(--success); }
-        .change-negative { color: var(--danger); }
-
-        /* Charts */
-        .charts-container {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 25px;
-            margin-bottom: 30px;
-        }
-
-        @media (max-width: 1200px) {
-            .charts-container {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .chart-card {
-            background: white;
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            height: 350px;
-        }
-
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        /* Filters Bar */
-        .filters-bar {
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            align-items: center;
-        }
-
-        .filter-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .filter-label {
-            font-weight: 600;
-            color: var(--dark);
-            font-size: 0.9rem;
-        }
-
-        .filter-select {
-            padding: 8px 15px;
-            border-radius: 8px;
-            border: 2px solid var(--border);
-            background: white;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            min-width: 150px;
-        }
-
-        .filter-select:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
-        }
-
-        /* Table */
-        .table-wrapper {
-            background: white;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 4px 25px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
-
-        .table-header {
-            padding: 25px;
-            background: linear-gradient(90deg, #f8f9fa, #e9ecef);
-            border-bottom: 2px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        thead {
-            background: #f8f9fa;
-        }
-
-        th {
-            padding: 18px 20px;
-            text-align: left;
-            font-weight: 700;
-            color: var(--dark);
-            border-bottom: 2px solid var(--border);
-            user-select: none;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        th:hover {
-            background: #e9ecef;
-        }
-
-        th i {
-            margin-left: 8px;
-            opacity: 0.5;
-        }
-
-        td {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
-            vertical-align: middle;
-        }
-
-        tr {
-            transition: all 0.2s;
-        }
-
-        tr:hover {
-            background: #f8f9fa;
-            transform: scale(1.002);
-        }
-
-        tr.late {
-            background: linear-gradient(90deg, rgba(255, 0, 84, 0.05) 0%, transparent 100%);
-            border-left: 4px solid var(--danger);
-        }
-
         /* Status Badges */
         .status-badge {
             display: inline-flex;
@@ -402,6 +245,7 @@
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            cursor: pointer;
         }
 
         .status-pending { background: rgba(251, 191, 36, 0.15); color: #d97706; }
@@ -488,6 +332,157 @@
             color: var(--primary);
         }
 
+        .btn-manager {
+            background: linear-gradient(45deg, var(--manager), #06a884);
+            color: white;
+        }
+
+        /* Table */
+        .table-wrapper {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .table-header {
+            padding: 25px;
+            background: linear-gradient(90deg, #f8f9fa, #e9ecef);
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            padding: 18px 20px;
+            text-align: left;
+            font-weight: 700;
+            color: var(--dark);
+            border-bottom: 2px solid var(--border);
+            user-select: none;
+        }
+
+        td {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        /* Manager Panel */
+        .manager-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.1);
+            border-left: 5px solid var(--manager);
+        }
+
+        .manager-section {
+            margin-bottom: 30px;
+        }
+
+        .manager-section h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            color: var(--dark);
+            font-size: 1.3rem;
+        }
+
+        .manager-section h3 i {
+            color: var(--manager);
+        }
+
+        .summary-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .summary-card h4 {
+            color: var(--dark);
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .summary-card p {
+            color: var(--text-gray);
+            line-height: 1.6;
+        }
+
+        /* Action Log */
+        .action-log {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+
+        .log-entry {
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .log-icon.delivered { background: var(--success); }
+        .log-icon.cancelled { background: var(--danger); }
+        .log-icon.delayed { background: var(--warning); }
+        .log-icon.updated { background: var(--info); }
+
+        .log-content {
+            flex: 1;
+        }
+
+        .log-time {
+            font-size: 0.85rem;
+            color: var(--text-gray);
+            margin-bottom: 5px;
+        }
+
+        .log-action {
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 3px;
+        }
+
+        .log-details {
+            font-size: 0.9rem;
+            color: var(--text-gray);
+        }
+
         /* Modals */
         .modal-overlay {
             position: fixed;
@@ -525,48 +520,6 @@
             to { transform: translateY(0); opacity: 1; }
         }
 
-        .modal-header {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .modal-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            color: white;
-        }
-
-        .modal-icon.success { background: var(--success); }
-        .modal-icon.warning { background: var(--warning); }
-        .modal-icon.danger { background: var(--danger); }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 80px 20px;
-            color: var(--text-gray);
-        }
-
-        .empty-state i {
-            font-size: 5rem;
-            margin-bottom: 20px;
-            color: #e9ecef;
-            opacity: 0.5;
-        }
-
-        .empty-state h3 {
-            font-size: 1.5rem;
-            margin-bottom: 10px;
-            color: var(--dark);
-        }
-
         /* Toast Notifications */
         .toast-container {
             position: fixed;
@@ -598,21 +551,7 @@
         .toast.success { border-left-color: var(--success); }
         .toast.warning { border-left-color: var(--warning); }
         .toast.danger { border-left-color: var(--danger); }
-
-        .toast-icon {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 0.9rem;
-        }
-
-        .toast.success .toast-icon { background: var(--success); }
-        .toast.warning .toast-icon { background: var(--warning); }
-        .toast.danger .toast-icon { background: var(--danger); }
+        .toast.manager { border-left-color: var(--manager); }
 
         /* Loading Overlay */
         .loading-overlay {
@@ -642,6 +581,26 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: var(--text-gray);
+        }
+
+        .empty-state i {
+            font-size: 5rem;
+            margin-bottom: 20px;
+            color: #e9ecef;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: var(--dark);
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .main-content {
@@ -651,14 +610,11 @@
             
             .sidebar {
                 transform: translateX(-100%);
+                transition: transform 0.3s ease;
             }
             
             .sidebar.show {
                 transform: translateX(0);
-            }
-            
-            .charts-container {
-                grid-template-columns: 1fr;
             }
             
             .stats-grid {
@@ -697,7 +653,7 @@
         }
     </style>
 </head>
-<body class="locked">
+<body>
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
 
@@ -709,122 +665,49 @@
     <!-- Login Modal -->
     <div class="modal-overlay" id="loginModal" style="display: flex;">
         <div class="modal">
-            <div class="modal-header">
-                <div class="modal-icon success">
-                    <i class="fas fa-user-shield"></i>
-                </div>
-                <div>
-                    <h2 style="margin: 0;">Agent Authentication</h2>
-                    <p style="color: var(--text-gray); margin: 5px 0 0;">Enter credentials to access dashboard</p>
-                </div>
+            <div style="margin-bottom: 30px; text-align: center;">
+                <i class="fas fa-chart-network" style="font-size: 4rem; color: var(--primary); margin-bottom: 15px;"></i>
+                <h2 style="margin: 0; color: var(--dark);">Daily Operations Dashboard</h2>
+                <p style="color: var(--text-gray); margin-top: 10px;">End-of-Day Reporting System</p>
             </div>
             
             <div style="margin: 30px 0;">
                 <div style="margin-bottom: 20px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--dark);">Agent Name</label>
-                    <input type="text" id="agentNameInput" class="filter-select" placeholder="Enter your full name" style="width: 100%;" autofocus>
+                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--dark);">User Role</label>
+                    <select id="userRole" class="status-badge" style="width: 100%; padding: 12px; border: 2px solid var(--border); background: white;" onchange="toggleRoleFields()">
+                        <option value="">Select Role</option>
+                        <option value="agent">Agent / Operator</option>
+                        <option value="manager">Manager</option>
+                    </select>
                 </div>
                 
-                <div style="margin-bottom: 25px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--dark);">Shift Code</label>
-                    <input type="password" id="shiftCodeInput" class="filter-select" placeholder="Enter shift access code" style="width: 100%;">
-                    <small style="color: var(--text-gray); display: block; margin-top: 5px;">Default: OPERATIONS2024</small>
+                <div id="agentFields" style="display: none;">
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--dark);">Agent Name</label>
+                        <input type="text" id="agentNameInput" class="status-badge" placeholder="Enter your full name" style="width: 100%; padding: 12px; border: 2px solid var(--border); background: white;">
+                    </div>
+                    
+                    <div style="margin-bottom: 25px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--dark);">Shift Code</label>
+                        <input type="password" id="shiftCodeInput" class="status-badge" placeholder="Enter shift access code" style="width: 100%; padding: 12px; border: 2px solid var(--border); background: white;">
+                    </div>
+                </div>
+                
+                <div id="managerFields" style="display: none;">
+                    <div style="margin-bottom: 25px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--dark);">Manager Access Code</label>
+                        <input type="password" id="managerCodeInput" class="status-badge" placeholder="Enter manager access code" style="width: 100%; padding: 12px; border: 2px solid var(--border); background: white;">
+                        <small style="color: var(--text-gray); display: block; margin-top: 5px;">Default: MANAGER2024</small>
+                    </div>
                 </div>
             </div>
             
             <div style="display: flex; gap: 10px;">
-                <button class="btn btn-primary" style="flex: 1;" onclick="loginAgent()">
-                    <i class="fas fa-sign-in-alt"></i> Start Shift
+                <button class="btn btn-primary" style="flex: 1;" onclick="loginUser()" id="loginBtn">
+                    <i class="fas fa-sign-in-alt"></i> Login
                 </button>
                 <button class="btn btn-outline" style="flex: 1;" onclick="demoLogin()">
                     <i class="fas fa-magic"></i> Demo Mode
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Cancellation Modal -->
-    <div class="modal-overlay" id="cancelModal">
-        <div class="modal">
-            <div class="modal-header">
-                <div class="modal-icon danger">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
-                <div>
-                    <h2 style="margin: 0;">Cancel Order</h2>
-                    <p style="color: var(--text-gray); margin: 5px 0 0;">Confirm cancellation details</p>
-                </div>
-            </div>
-            
-            <div style="margin: 25px 0;">
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--dark);">Cancellation Reason</label>
-                    <select id="cancelReason" class="filter-select" style="width: 100%;">
-                        <option value="">-- Select Reason --</option>
-                        <option value="Customer refused">Customer refused order</option>
-                        <option value="Out of stock">Out of stock</option>
-                        <option value="Duplicate order">Duplicate order</option>
-                        <option value="Wrong address">Wrong address provided</option>
-                        <option value="Payment failed">Payment failed</option>
-                        <option value="Delivery unavailable">Delivery unavailable</option>
-                        <option value="System error">System error</option>
-                        <option value="Other">Other (specify below)</option>
-                    </select>
-                </div>
-                
-                <div id="otherReasonContainer" style="display: none; margin-bottom: 20px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--dark);">Specify Reason</label>
-                    <input type="text" id="otherReason" class="filter-select" placeholder="Enter cancellation reason" style="width: 100%;">
-                </div>
-                
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--dark);">Additional Notes</label>
-                    <textarea id="cancelNotes" class="filter-select" placeholder="Optional additional notes" style="width: 100%; height: 80px; resize: vertical;"></textarea>
-                </div>
-            </div>
-            
-            <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button class="btn btn-outline" onclick="closeCancelModal()">Cancel</button>
-                <button class="btn btn-danger" onclick="confirmCancellation()">
-                    <i class="fas fa-ban"></i> Confirm Cancellation
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Summary Modal -->
-    <div class="modal-overlay" id="summaryModal">
-        <div class="modal">
-            <div class="modal-header">
-                <div class="modal-icon success">
-                    <i class="fas fa-clipboard-check"></i>
-                </div>
-                <div>
-                    <h2 style="margin: 0;">Shift Summary</h2>
-                    <p style="color: var(--text-gray); margin: 5px 0 0;">Add notes for the next shift</p>
-                </div>
-            </div>
-            
-            <div style="margin: 25px 0;">
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--dark);">Shift Summary</label>
-                    <textarea id="summaryInput" class="filter-select" placeholder="e.g., All orders verified. Special instructions for next shift. System updates completed." style="width: 100%; height: 150px; resize: vertical;"></textarea>
-                </div>
-                
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--dark);">Priority Level</label>
-                    <select id="summaryPriority" class="filter-select" style="width: 100%;">
-                        <option value="normal">Normal Priority</option>
-                        <option value="high">High Priority</option>
-                        <option value="urgent">Urgent Attention Required</option>
-                    </select>
-                </div>
-            </div>
-            
-            <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button class="btn btn-outline" onclick="closeSummaryModal()">Cancel</button>
-                <button class="btn btn-success" onclick="saveSummary()">
-                    <i class="fas fa-save"></i> Save Summary
                 </button>
             </div>
         </div>
@@ -853,29 +736,26 @@
                     <i class="fas fa-boxes"></i>
                     <span>Order Management</span>
                 </div>
-                <div class="nav-item" onclick="showSection('analytics')">
-                    <i class="fas fa-chart-pie"></i>
-                    <span>Analytics</span>
+                <div class="nav-item" onclick="showSection('actions')">
+                    <i class="fas fa-history"></i>
+                    <span>Daily Actions</span>
+                    <span class="manager-badge" id="actionCountBadge">0</span>
                 </div>
-                <div class="nav-item" onclick="openSummaryModal()">
-                    <i class="fas fa-clipboard-list"></i>
-                    <span>Shift Summary</span>
+                <div class="nav-item" onclick="showSection('manager')" id="managerNav" style="display: none;">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Manager Panel</span>
                 </div>
                 <div class="nav-item" onclick="showSection('reports')">
                     <i class="fas fa-file-export"></i>
-                    <span>Reports</span>
-                </div>
-                <div class="nav-item" onclick="showSection('settings')">
-                    <i class="fas fa-cog"></i>
-                    <span>Settings</span>
+                    <span>Daily Reports</span>
                 </div>
             </div>
             
             <div class="agent-profile">
-                <div class="agent-avatar" id="agentAvatar">SC</div>
+                <div class="agent-avatar" id="agentAvatar">U</div>
                 <div>
-                    <div style="font-weight: 600;" id="sidebarAgentName">Not Logged In</div>
-                    <div style="font-size: 0.8rem; color: rgba(255,255,255,0.6);" id="sidebarRole">Operator</div>
+                    <div style="font-weight: 600;" id="sidebarUserName">Not Logged In</div>
+                    <div style="font-size: 0.8rem; color: rgba(255,255,255,0.6);" id="sidebarUserRole">Guest</div>
                 </div>
             </div>
         </div>
@@ -885,11 +765,14 @@
             <!-- Header -->
             <div class="main-header">
                 <div class="header-left">
-                    <h1>Operations Management Dashboard</h1>
+                    <h1 id="pageTitle">Operations Dashboard</h1>
                     <div class="session-info">
-                        <span class="session-badge" id="sessionTime">Session: 0h 0m</span>
-                        <span class="session-badge" id="updatesCount">Updates: 0</span>
+                        <span class="session-badge" id="sessionTime">Today: <span id="currentDate">Loading...</span></span>
+                        <span class="session-badge" id="actionsCount">Actions: 0</span>
                         <span class="session-badge" id="ordersCount">Orders: 0</span>
+                        <span class="session-badge" id="userRoleBadge" style="background: rgba(6, 214, 160, 0.1); color: var(--manager); display: none;">
+                            <i class="fas fa-user-tie"></i> Manager
+                        </span>
                     </div>
                 </div>
                 
@@ -898,88 +781,39 @@
                         <input type="file" id="excelInput" accept=".xlsx, .xls" style="display: none;" onchange="handleFileUpload(event)">
                         
                         <button class="btn btn-outline" onclick="downloadTemplate()">
-                            <i class="fas fa-file-download"></i> Download Template
+                            <i class="fas fa-file-download"></i> Template
                         </button>
                         
                         <button class="btn btn-primary" onclick="document.getElementById('excelInput').click()">
                             <i class="fas fa-file-upload"></i> Import Excel
                         </button>
                         
-                        <button class="btn btn-success" onclick="exportExcel()" id="btnExport" style="display: none;">
-                            <i class="fas fa-file-export"></i> Export Report
+                        <button class="btn btn-success" onclick="exportDailyReport()" id="btnExport">
+                            <i class="fas fa-file-export"></i> Daily Report
                         </button>
                         
-                        <button class="btn btn-danger" onclick="logoutAgent()">
-                            <i class="fas fa-sign-out-alt"></i> End Shift
+                        <button class="btn btn-manager" onclick="endOfDayProcedure()" id="btnEndOfDay" style="display: none;">
+                            <i class="fas fa-flag-checkered"></i> End of Day
+                        </button>
+                        
+                        <button class="btn btn-danger" onclick="logoutUser()">
+                            <i class="fas fa-sign-out-alt"></i> Logout
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Summary Alert -->
-            <div class="filters-bar" id="summaryAlert" style="display: none;">
-                <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
-                    <i class="fas fa-info-circle" style="color: var(--info); font-size: 1.2rem;"></i>
-                    <div>
-                        <strong style="color: var(--dark);">Previous Shift Summary:</strong>
-                        <span id="previousSummaryText" style="color: var(--text-gray); margin-left: 10px;">No summary found</span>
-                    </div>
-                </div>
-                <button class="btn btn-outline" style="padding: 8px 16px;" onclick="dismissSummary()">
-                    <i class="fas fa-times"></i> Dismiss
-                </button>
-            </div>
-
-            <!-- Filters -->
-            <div class="filters-bar" id="filtersBar" style="display: none;">
-                <div class="filter-group">
-                    <span class="filter-label">Status:</span>
-                    <select class="filter-select" id="filterStatus" onchange="applyFilters()">
-                        <option value="all">All Status</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Delivered">Delivered</option>
-                        <option value="Delayed">Delayed</option>
-                        <option value="Cancelled">Cancelled</option>
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <span class="filter-label">Branch:</span>
-                    <select class="filter-select" id="filterBranch" onchange="applyFilters()">
-                        <option value="all">All Branches</option>
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <span class="filter-label">Sort by:</span>
-                    <select class="filter-select" id="sortBy" onchange="applySorting()">
-                        <option value="date_desc">Date (Newest)</option>
-                        <option value="date_asc">Date (Oldest)</option>
-                        <option value="total_desc">Amount (High to Low)</option>
-                        <option value="total_asc">Amount (Low to High)</option>
-                        <option value="status">Status</option>
-                    </select>
-                </div>
-                
-                <div class="filter-group" style="margin-left: auto;">
-                    <input type="text" class="filter-select" id="searchInput" placeholder="Search orders..." style="min-width: 200px;" onkeyup="applySearch()">
-                    <button class="btn-icon btn-refresh" onclick="refreshDashboard()">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Dashboard Content -->
-            <div id="dashboardContent" style="display: none;">
+            <!-- Dashboard Section (Default) -->
+            <div id="dashboardSection">
                 <!-- Stats -->
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-icon" style="background: linear-gradient(45deg, var(--primary), var(--secondary));">
                             <i class="fas fa-boxes"></i>
                         </div>
-                        <div class="stat-label">Total Orders</div>
+                        <div class="stat-label">Today's Orders</div>
                         <div class="stat-value" id="kpiTotal">0</div>
-                        <div class="stat-change" id="kpiTotalChange">--</div>
+                        <div class="stat-label" style="margin-top: 10px;" id="kpiTotalTime">Updated: --</div>
                     </div>
                     
                     <div class="stat-card">
@@ -988,7 +822,7 @@
                         </div>
                         <div class="stat-label">Delivered</div>
                         <div class="stat-value" id="kpiDelivered">0</div>
-                        <div class="stat-change" id="kpiDeliveredChange">--</div>
+                        <div class="stat-label" style="margin-top: 10px;">Success Rate: <span id="kpiSuccessRate">0%</span></div>
                     </div>
                     
                     <div class="stat-card">
@@ -997,7 +831,7 @@
                         </div>
                         <div class="stat-label">Delayed</div>
                         <div class="stat-value" id="kpiDelayed">0</div>
-                        <div class="stat-change change-negative" id="kpiDelayedChange">--</div>
+                        <div class="stat-label" style="margin-top: 10px;">Avg Delay: <span id="kpiAvgDelay">0m</span></div>
                     </div>
                     
                     <div class="stat-card">
@@ -1006,7 +840,7 @@
                         </div>
                         <div class="stat-label">Cancelled</div>
                         <div class="stat-value" id="kpiCancelled">0</div>
-                        <div class="stat-change change-negative" id="kpiCancelledChange">--</div>
+                        <div class="stat-label" style="margin-top: 10px;">Rate: <span id="kpiCancelRate">0%</span></div>
                     </div>
                     
                     <div class="stat-card">
@@ -1015,54 +849,49 @@
                         </div>
                         <div class="stat-label">Total Revenue</div>
                         <div class="stat-value" id="kpiRevenue">$0</div>
-                        <div class="stat-change" id="kpiRevenueChange">--</div>
+                        <div class="stat-label" style="margin-top: 10px;">Avg Order: <span id="kpiAvgOrder">$0</span></div>
                     </div>
                     
                     <div class="stat-card">
                         <div class="stat-icon" style="background: linear-gradient(45deg, #4895ef, #4361ee);">
-                            <i class="fas fa-percentage"></i>
+                            <i class="fas fa-users"></i>
                         </div>
-                        <div class="stat-label">Success Rate</div>
-                        <div class="stat-value" id="kpiSuccessRate">0%</div>
-                        <div class="stat-change" id="kpiSuccessRateChange">--</div>
+                        <div class="stat-label">Agents Active</div>
+                        <div class="stat-value" id="kpiAgents">0</div>
+                        <div class="stat-label" style="margin-top: 10px;">Actions: <span id="kpiActions">0</span></div>
                     </div>
                 </div>
 
-                <!-- Charts -->
-                <div class="charts-container">
-                    <div class="chart-card">
-                        <div class="chart-header">
-                            <h3 style="margin: 0;">Order Status Distribution</h3>
-                            <select class="filter-select" id="chartType" style="width: auto;" onchange="updateChartType()">
-                                <option value="doughnut">Doughnut</option>
-                                <option value="pie">Pie</option>
-                                <option value="bar">Bar</option>
-                            </select>
-                        </div>
-                        <canvas id="statusChart"></canvas>
-                    </div>
-                    
-                    <div class="chart-card">
-                        <div class="chart-header">
-                            <h3 style="margin: 0;">Performance Trends</h3>
-                            <select class="filter-select" id="trendPeriod" style="width: auto;" onchange="updateTrendChart()">
-                                <option value="daily">Daily</option>
-                                <option value="hourly">Hourly</option>
-                            </select>
-                        </div>
-                        <canvas id="trendChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- Table -->
+                <!-- Recent Activity -->
                 <div class="table-wrapper">
                     <div class="table-header">
-                        <h3 style="margin: 0;">Order Management</h3>
+                        <h3 style="margin: 0;"><i class="fas fa-history"></i> Recent Agent Actions</h3>
                         <div style="display: flex; gap: 10px; align-items: center;">
-                            <span style="color: var(--text-gray); font-size: 0.9rem;" id="tableInfo">Showing 0 orders</span>
+                            <span style="color: var(--text-gray); font-size: 0.9rem;">Last 24 hours</span>
                             <button class="btn-icon btn-refresh" onclick="refreshDashboard()">
                                 <i class="fas fa-redo"></i>
                             </button>
+                        </div>
+                    </div>
+                    
+                    <div class="action-log" id="recentActivity">
+                        <!-- Recent actions will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Orders Table -->
+                <div class="table-wrapper">
+                    <div class="table-header">
+                        <h3 style="margin: 0;"><i class="fas fa-list"></i> Current Orders</h3>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <input type="text" id="searchInput" placeholder="Search orders..." style="padding: 8px 15px; border-radius: 8px; border: 2px solid var(--border); min-width: 200px;" onkeyup="filterOrders()">
+                            <select id="statusFilter" style="padding: 8px 15px; border-radius: 8px; border: 2px solid var(--border);" onchange="filterOrders()">
+                                <option value="all">All Status</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Delivered">Delivered</option>
+                                <option value="Delayed">Delayed</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </select>
                         </div>
                     </div>
                     
@@ -1070,20 +899,78 @@
                         <table id="orderTable">
                             <thead>
                                 <tr>
-                                    <th onclick="sortTable('id')">ID <i class="fas fa-sort"></i></th>
-                                    <th onclick="sortTable('customer')">Customer <i class="fas fa-sort"></i></th>
-                                    <th onclick="sortTable('date')">Order Date <i class="fas fa-sort"></i></th>
-                                    <th onclick="sortTable('total')">Amount <i class="fas fa-sort"></i></th>
-                                    <th onclick="sortTable('branch')">Branch <i class="fas fa-sort"></i></th>
-                                    <th onclick="sortTable('status')">Status <i class="fas fa-sort"></i></th>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Order Date</th>
+                                    <th>Amount</th>
+                                    <th>Branch</th>
+                                    <th>Status</th>
                                     <th>Reason</th>
-                                    <th onclick="sortTable('updatedBy')">Updated By <i class="fas fa-sort"></i></th>
-                                    <th onclick="sortTable('updatedAt')">Last Update <i class="fas fa-sort"></i></th>
+                                    <th>Updated By</th>
+                                    <th>Updated At</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="tableBody"></tbody>
+                            <tbody id="tableBody">
+                                <!-- Orders will be populated here -->
+                            </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manager Panel Section -->
+            <div id="managerSection" style="display: none;">
+                <div class="manager-panel">
+                    <h2 style="display: flex; align-items: center; gap: 10px; margin-bottom: 25px; color: var(--dark);">
+                        <i class="fas fa-user-tie" style="color: var(--manager);"></i>
+                        Manager Control Panel
+                    </h2>
+                    
+                    <div class="manager-section">
+                        <h3><i class="fas fa-chart-line"></i> Daily Performance Summary</h3>
+                        <div class="summary-card">
+                            <h4>Today's Overview</h4>
+                            <div id="dailySummary" style="line-height: 1.8;">
+                                <p>• Total Orders Processed: <strong>0</strong></p>
+                                <p>• Successful Deliveries: <strong>0</strong> (<strong>0%</strong> success rate)</p>
+                                <p>• Cancellation Rate: <strong>0%</strong></p>
+                                <p>• Active Agents Today: <strong>0</strong></p>
+                                <p>• Total Actions Recorded: <strong>0</strong></p>
+                            </div>
+                        </div>
+                        
+                        <div class="summary-card">
+                            <h4>Agent Performance</h4>
+                            <div id="agentPerformance">
+                                <!-- Agent performance will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="manager-section">
+                        <h3><i class="fas fa-tasks"></i> System Controls</h3>
+                        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                            <button class="btn btn-manager" onclick="generateEndOfDayReport()">
+                                <i class="fas fa-file-pdf"></i> Generate EOD Report
+                            </button>
+                            <button class="btn btn-primary" onclick="backupSystemData()">
+                                <i class="fas fa-database"></i> Backup Data
+                            </button>
+                            <button class="btn btn-success" onclick="exportCompleteLog()">
+                                <i class="fas fa-file-excel"></i> Export Complete Log
+                            </button>
+                            <button class="btn btn-danger" onclick="resetForNextDay()">
+                                <i class="fas fa-redo"></i> Reset for Next Day
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="manager-section">
+                        <h3><i class="fas fa-history"></i> Complete Action Log</h3>
+                        <div class="action-log" id="completeActionLog">
+                            <!-- Complete action log will be populated here -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1091,8 +978,8 @@
             <!-- Empty State -->
             <div id="emptyState" class="empty-state">
                 <i class="fas fa-cloud-upload-alt"></i>
-                <h3>No Data Loaded</h3>
-                <p>Upload an Excel file or use demo data to get started</p>
+                <h3>Welcome to Daily Operations Dashboard</h3>
+                <p>Import today's Excel data or use demo mode to get started</p>
                 <div style="margin-top: 25px; display: flex; gap: 15px; justify-content: center;">
                     <button class="btn btn-primary" onclick="document.getElementById('excelInput').click()">
                         <i class="fas fa-upload"></i> Upload Excel
@@ -1106,592 +993,328 @@
     </div>
 
     <script>
-        // ================= ENHANCED CONFIGURATION =================
+        // ================= CONFIGURATION =================
         const CONFIG = {
-            DELAY_THRESHOLD_MINUTES: 45,
-            SESSION_TIMEOUT: 7200, // 2 hours in seconds
-            AUTO_SAVE_INTERVAL: 30000, // 30 seconds
             SHIFT_CODE: "OPERATIONS2024",
-            DEMO_DATA_SIZE: 50
+            MANAGER_CODE: "MANAGER2024",
+            DELAY_THRESHOLD: 45, // minutes
+            DEMO_DATA_SIZE: 30
         };
 
         // ================= GLOBAL STATE =================
         let state = {
             currentUser: '',
+            userRole: '', // 'agent' or 'manager'
             sessionStart: null,
-            updatesMade: 0,
-            globalData: [],
-            filteredData: [],
-            editingOrderId: null,
-            charts: {},
-            summary: '',
-            previousSummary: '',
-            sessionTimer: null,
-            autoSaveTimer: null,
-            sortConfig: { field: 'date', direction: 'desc' },
-            filters: {
-                status: 'all',
-                branch: 'all',
-                search: ''
-            }
+            dailyData: {
+                orders: [],
+                actions: [],
+                agents: [],
+                date: new Date().toISOString().split('T')[0]
+            },
+            previousDays: [],
+            isDemo: false
         };
 
-        // ================= ENHANCED INITIALIZATION =================
+        // ================= INITIALIZATION =================
         document.addEventListener('DOMContentLoaded', function() {
             initSession();
-            setupEventListeners();
-            checkSessionTimeout();
-            
-            // Auto-save every 30 seconds
-            state.autoSaveTimer = setInterval(autoSaveState, CONFIG.AUTO_SAVE_INTERVAL);
-            
-            // Update session timer every minute
-            state.sessionTimer = setInterval(updateSessionTime, 60000);
+            updateCurrentDate();
+            // Auto-save every minute
+            setInterval(saveState, 60000);
         });
 
         function initSession() {
-            const savedState = localStorage.getItem('ops_dashboard_state');
-            const storedUser = localStorage.getItem('ops_dashboard_user');
+            const savedState = localStorage.getItem('ops_daily_state');
+            const savedUser = localStorage.getItem('ops_daily_user');
             
-            if (storedUser) {
-                state.currentUser = storedUser;
+            if (savedUser) {
+                const userData = JSON.parse(savedUser);
+                state.currentUser = userData.name;
+                state.userRole = userData.role;
+                state.sessionStart = new Date();
                 
                 if (savedState) {
                     try {
                         const parsed = JSON.parse(savedState);
-                        state.globalData = parsed.data || [];
-                        state.summary = parsed.summary || '';
-                        state.updatesMade = parsed.updatesMade || 0;
-                        state.sessionStart = new Date(parsed.sessionStart);
+                        const today = new Date().toISOString().split('T')[0];
+                        
+                        if (parsed.date === today) {
+                            state.dailyData = parsed;
+                        } else {
+                            // Archive yesterday's data
+                            archivePreviousDay(parsed);
+                            state.dailyData.date = today;
+                        }
                     } catch (e) {
                         console.warn('Failed to restore session state');
                     }
                 }
                 
                 unlockDashboard();
-                
-                if (state.globalData.length > 0) {
-                    initDashboard();
-                }
+                loadDashboard();
             } else {
                 document.getElementById('loginModal').style.display = 'flex';
             }
         }
 
-        function setupEventListeners() {
-            // Enter key in login
-            document.getElementById('agentNameInput').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') loginAgent();
-            });
-            
-            document.getElementById('shiftCodeInput').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') loginAgent();
-            });
-
-            // Cancel reason change
-            document.getElementById('cancelReason').addEventListener('change', function() {
-                const otherContainer = document.getElementById('otherReasonContainer');
-                otherContainer.style.display = this.value === 'Other' ? 'block' : 'none';
-            });
-
-            // Auto-save listeners
-            ['summaryInput', 'cancelNotes', 'otherReason'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    el.addEventListener('input', function() {
-                        state.summary = document.getElementById('summaryInput')?.value || '';
-                        saveState();
-                    });
-                }
-            });
-
-            // Prevent navigation on unsaved changes
-            window.addEventListener('beforeunload', function(e) {
-                if (state.updatesMade > 0 || state.summary) {
-                    e.preventDefault();
-                    e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-                }
-            });
-
-            // Responsive sidebar
-            window.addEventListener('resize', function() {
-                if (window.innerWidth > 768) {
-                    document.getElementById('sidebar').classList.remove('show');
-                }
-            });
+        function archivePreviousDay(yesterdayData) {
+            if (yesterdayData.orders.length > 0 || yesterdayData.actions.length > 0) {
+                // Store in previous days archive
+                const archive = JSON.parse(localStorage.getItem('ops_daily_archive') || '[]');
+                archive.push(yesterdayData);
+                if (archive.length > 30) archive.shift(); // Keep last 30 days
+                localStorage.setItem('ops_daily_archive', JSON.stringify(archive));
+                
+                // Clear for new day
+                state.previousDays = archive;
+            }
         }
 
-        // ================= ENHANCED AUTHENTICATION =================
-        function loginAgent() {
-            const name = document.getElementById('agentNameInput').value.trim();
-            const code = document.getElementById('shiftCodeInput').value.trim();
+        // ================= AUTHENTICATION =================
+        function toggleRoleFields() {
+            const role = document.getElementById('userRole').value;
+            document.getElementById('agentFields').style.display = role === 'agent' ? 'block' : 'none';
+            document.getElementById('managerFields').style.display = role === 'manager' ? 'block' : 'none';
+            document.getElementById('loginBtn').innerHTML = `<i class="fas fa-sign-in-alt"></i> ${role === 'manager' ? 'Manager Login' : 'Start Shift'}`;
+        }
+
+        function loginUser() {
+            const role = document.getElementById('userRole').value;
             
-            if (!name) {
-                showToast('Please enter your name', 'warning');
+            if (!role) {
+                showToast('Please select a role', 'warning');
                 return;
             }
             
-            if (code !== CONFIG.SHIFT_CODE) {
-                showToast('Invalid shift access code', 'danger');
-                return;
+            if (role === 'agent') {
+                const name = document.getElementById('agentNameInput').value.trim();
+                const code = document.getElementById('shiftCodeInput').value.trim();
+                
+                if (!name) {
+                    showToast('Please enter agent name', 'warning');
+                    return;
+                }
+                
+                if (code !== CONFIG.SHIFT_CODE) {
+                    showToast('Invalid shift access code', 'danger');
+                    return;
+                }
+                
+                state.currentUser = name;
+                state.userRole = 'agent';
+            } else if (role === 'manager') {
+                const code = document.getElementById('managerCodeInput').value.trim();
+                
+                if (code !== CONFIG.MANAGER_CODE) {
+                    showToast('Invalid manager access code', 'danger');
+                    return;
+                }
+                
+                state.currentUser = 'Manager';
+                state.userRole = 'manager';
             }
             
-            state.currentUser = name;
             state.sessionStart = new Date();
-            state.updatesMade = 0;
             
-            localStorage.setItem('ops_dashboard_user', name);
-            saveState();
+            // Save user data
+            localStorage.setItem('ops_daily_user', JSON.stringify({
+                name: state.currentUser,
+                role: state.userRole,
+                loginTime: new Date().toISOString()
+            }));
             
-            showToast(`Welcome, ${name}! Shift started successfully.`, 'success');
             unlockDashboard();
-            
-            // Update avatar
-            const initials = name.split(' ').map(n => n[0]).join('').toUpperCase();
-            document.getElementById('agentAvatar').textContent = initials;
+            showToast(`Welcome, ${state.currentUser}!`, 'success');
         }
 
         function demoLogin() {
             state.currentUser = "Demo Agent";
-            state.sessionStart = new Date();
-            state.updatesMade = 0;
+            state.userRole = "agent";
+            state.isDemo = true;
             
-            localStorage.setItem('ops_dashboard_user', state.currentUser);
+            localStorage.setItem('ops_daily_user', JSON.stringify({
+                name: state.currentUser,
+                role: state.userRole,
+                loginTime: new Date().toISOString()
+            }));
             
-            // Generate demo data
             loadDemoData();
-            
-            showToast('Demo mode activated with sample data', 'success');
             unlockDashboard();
-            
-            document.getElementById('agentAvatar').textContent = 'DA';
+            showToast('Demo mode activated', 'success');
         }
 
         function unlockDashboard() {
-            document.body.classList.remove('locked');
             document.getElementById('loginModal').style.display = 'none';
-            document.getElementById('sidebarAgentName').textContent = state.currentUser;
             
-            if (state.globalData.length > 0) {
-                initDashboard();
+            // Update UI based on role
+            document.getElementById('sidebarUserName').textContent = state.currentUser;
+            document.getElementById('sidebarUserRole').textContent = state.userRole === 'manager' ? 'Manager' : 'Operator';
+            
+            // Show manager nav if manager
+            if (state.userRole === 'manager') {
+                document.getElementById('managerNav').style.display = 'flex';
+                document.getElementById('userRoleBadge').style.display = 'inline-block';
+                document.getElementById('btnEndOfDay').style.display = 'inline-flex';
             }
+            
+            // Update avatar
+            const initials = state.currentUser.split(' ').map(n => n[0]).join('').toUpperCase();
+            document.getElementById('agentAvatar').textContent = initials;
+            
+            loadDashboard();
         }
 
-        function logoutAgent() {
-            if (confirm('End your shift and log out?')) {
-                if (state.updatesMade > 0 || state.summary) {
-                    if (confirm('You have unsaved changes. Export before logging out?')) {
-                        exportExcel();
-                    }
-                }
+        function logoutUser() {
+            if (confirm('Are you sure you want to logout?')) {
+                // Save current state before logout
+                saveState();
                 
-                localStorage.removeItem('ops_dashboard_user');
-                localStorage.removeItem('ops_dashboard_state');
-                clearInterval(state.sessionTimer);
-                clearInterval(state.autoSaveTimer);
-                
-                showToast('Shift ended successfully', 'success');
+                localStorage.removeItem('ops_daily_user');
+                showToast('Logged out successfully', 'success');
                 setTimeout(() => location.reload(), 1000);
             }
         }
 
-        // ================= ENHANCED FILE HANDLING =================
-        function downloadTemplate() {
-            const templateData = [
-                {
-                    "Order ID": "ORD-1001",
-                    "Customer": "John Smith",
-                    "Order Date": new Date().toISOString(),
-                    "Total": 150.00,
-                    "Branch": "Downtown",
-                    "Status": "Pending",
-                    "Reason": "",
-                    "Updated By": "",
-                    "Updated At": ""
-                },
-                {
-                    "Order ID": "ORD-1002",
-                    "Customer": "Emma Wilson",
-                    "Order Date": new Date(Date.now() - 3600000).toISOString(),
-                    "Total": 89.99,
-                    "Branch": "Uptown",
-                    "Status": "Delivered",
-                    "Reason": "Delivered on time",
-                    "Updated By": "Agent 1",
-                    "Updated At": new Date().toISOString()
-                }
-            ];
-            
-            const ws = XLSX.utils.json_to_sheet(templateData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Orders");
-            
-            // Add instructions sheet
-            const instructions = [
-                ["COLUMN", "DESCRIPTION", "REQUIRED", "EXAMPLE"],
-                ["Order ID", "Unique order identifier", "Yes", "ORD-1001"],
-                ["Customer", "Customer full name", "Yes", "John Smith"],
-                ["Order Date", "Date and time of order", "Yes", "2024-01-15T10:30:00Z"],
-                ["Total", "Order amount", "Yes", "150.00"],
-                ["Branch", "Branch location", "No", "Downtown"],
-                ["Status", "Order status", "No", "Pending"],
-                ["Reason", "Status reason/notes", "No", "Customer requested"],
-                ["Updated By", "Last agent name", "No", "Agent 1"],
-                ["Updated At", "Last update timestamp", "No", "2024-01-15T11:30:00Z"]
-            ];
-            
-            const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
-            XLSX.utils.book_append_sheet(wb, wsInstructions, "Instructions");
-            
-            XLSX.writeFile(wb, "Ops_Dashboard_Template.xlsx");
-        }
-
-        function handleFileUpload(event) {
-            showLoading();
-            
-            const file = event.target.files[0];
-            if (!file) {
-                hideLoading();
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    
-                    // Process orders
-                    let jsonOrders = [];
-                    workbook.SheetNames.forEach(sheetName => {
-                        if (sheetName.toLowerCase().includes('order')) {
-                            const sheet = workbook.Sheets[sheetName];
-                            jsonOrders = XLSX.utils.sheet_to_json(sheet);
-                        }
-                    });
-                    
-                    if (jsonOrders.length === 0 && workbook.SheetNames.length > 0) {
-                        jsonOrders = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                    }
-
-                    // Process summary
-                    state.previousSummary = '';
-                    workbook.SheetNames.forEach(sheetName => {
-                        if (sheetName.toLowerCase().includes('summary')) {
-                            const sheet = workbook.Sheets[sheetName];
-                            const jsonSummary = XLSX.utils.sheet_to_json(sheet);
-                            if (jsonSummary.length > 0) {
-                                const last = jsonSummary[jsonSummary.length - 1];
-                                state.previousSummary = `${last.Summary || ''} (By: ${last.Manager || 'Unknown'})`;
-                            }
-                        }
-                    });
-
-                    // Normalize data
-                    state.globalData = jsonOrders.map(row => {
-                        const getVal = (keys, defaultValue = '') => {
-                            for (let key of keys) {
-                                if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
-                                    return row[key];
-                                }
-                            }
-                            return defaultValue;
-                        };
-
-                        let dateValue = getVal(['Order Date', 'Date', 'Time', 'Timestamp']);
-                        if (typeof dateValue === 'number') {
-                            dateValue = XLSX.SSF.parse_date_code(dateValue);
-                        }
-
-                        return {
-                            id: getVal(['Order ID', 'Order no', 'id', 'ID']),
-                            customer: getVal(['Customer', 'Cus. Name', 'Client', 'Customer Name']),
-                            date: dateValue || new Date().toISOString(),
-                            total: parseFloat(getVal(['Total', 'Amount', 'Order Total', 'Price'], 0)) || 0,
-                            branch: getVal(['Branch', 'Outlet', 'Location'], 'Unknown'),
-                            status: getVal(['Status', 'status', 'Order Status'], 'Pending'),
-                            reason: getVal(['Reason', 'Notes', 'Comment', 'Remarks'], ''),
-                            updatedBy: getVal(['Updated By', 'Agent', 'Modified By'], ''),
-                            updatedAt: getVal(['Updated At', 'Timestamp', 'Last Updated'], ''),
-                            _originalIndex: state.globalData.length
-                        };
-                    }).filter(row => row.id && row.id.toString().trim() !== '');
-
-                    // Show summary alert if exists
-                    if (state.previousSummary) {
-                        document.getElementById('previousSummaryText').textContent = state.previousSummary;
-                        document.getElementById('summaryAlert').style.display = 'flex';
-                    }
-
-                    hideLoading();
-                    
-                    if (state.globalData.length > 0) {
-                        showToast(`Successfully loaded ${state.globalData.length} orders`, 'success');
-                        initDashboard();
-                    } else {
-                        showToast('No valid orders found in file', 'warning');
-                    }
-                    
-                    saveState();
-                } catch (error) {
-                    hideLoading();
-                    showToast('Error processing file: ' + error.message, 'danger');
-                    console.error(error);
-                }
-            };
-            
-            reader.onerror = function() {
-                hideLoading();
-                showToast('Error reading file', 'danger');
-            };
-            
-            reader.readAsArrayBuffer(file);
-        }
-
-        function loadDemoData() {
-            showLoading();
-            
-            // Generate realistic demo data
-            const branches = ['Downtown', 'Uptown', 'Westside', 'East End', 'Central'];
-            const customers = ['John Smith', 'Emma Wilson', 'Michael Brown', 'Sarah Johnson', 'David Lee', 
-                              'Lisa Taylor', 'Robert Wang', 'Maria Garcia', 'James Miller', 'Patricia Davis'];
-            const statuses = ['Pending', 'Delivered', 'Delayed', 'Cancelled'];
-            
-            const demoData = [];
-            const now = new Date();
-            
-            for (let i = 1; i <= CONFIG.DEMO_DATA_SIZE; i++) {
-                const hoursAgo = Math.floor(Math.random() * 72);
-                const orderDate = new Date(now.getTime() - hoursAgo * 3600000);
-                const status = statuses[Math.floor(Math.random() * statuses.length)];
-                const isDelivered = status === 'Delivered';
-                const isCancelled = status === 'Cancelled';
-                
-                demoData.push({
-                    id: `ORD-${1000 + i}`,
-                    customer: customers[Math.floor(Math.random() * customers.length)],
-                    date: orderDate.toISOString(),
-                    total: parseFloat((Math.random() * 500 + 20).toFixed(2)),
-                    branch: branches[Math.floor(Math.random() * branches.length)],
-                    status: status,
-                    reason: isDelivered ? 'Delivered successfully' : 
-                           isCancelled ? ['Customer refused', 'Out of stock', 'Wrong address'][Math.floor(Math.random() * 3)] : '',
-                    updatedBy: isDelivered || isCancelled ? 'Demo Agent' : '',
-                    updatedAt: isDelivered || isCancelled ? 
-                              new Date(orderDate.getTime() + Math.random() * 3600000).toISOString() : '',
-                    _originalIndex: i
-                });
-            }
-            
-            state.globalData = demoData;
-            state.previousSummary = "Demo data loaded. This is sample data for testing purposes.";
-            
-            hideLoading();
-            showToast(`Demo data loaded with ${state.globalData.length} orders`, 'success');
-            initDashboard();
-            saveState();
-        }
-
-        // ================= ENHANCED DASHBOARD =================
-        function initDashboard() {
+        // ================= DASHBOARD FUNCTIONS =================
+        function loadDashboard() {
             document.getElementById('emptyState').style.display = 'none';
-            document.getElementById('dashboardContent').style.display = 'block';
-            document.getElementById('filtersBar').style.display = 'flex';
-            document.getElementById('btnExport').style.display = 'inline-flex';
+            document.getElementById('dashboardSection').style.display = 'block';
             
-            // Populate branch filter
-            populateBranchFilter();
+            updateCurrentDate();
+            updateStats();
+            updateRecentActivity();
+            updateOrdersTable();
             
-            // Calculate initial stats
-            calculateStats();
-            
-            // Initial render
-            applyFilters();
-            
-            // Update session display
-            updateSessionTime();
-            updateOrdersCount();
+            if (state.userRole === 'manager') {
+                updateManagerPanel();
+            }
         }
 
-        function populateBranchFilter() {
-            const branchSelect = document.getElementById('filterBranch');
-            const branches = [...new Set(state.globalData.map(o => o.branch).filter(b => b))];
-            
-            branchSelect.innerHTML = '<option value="all">All Branches</option>';
-            branches.forEach(branch => {
-                const option = document.createElement('option');
-                option.value = branch;
-                option.textContent = branch;
-                branchSelect.appendChild(option);
-            });
-        }
-
-        function calculateStats() {
-            const total = state.globalData.length;
-            const delivered = state.globalData.filter(o => o.status === 'Delivered').length;
-            const cancelled = state.globalData.filter(o => o.status === 'Cancelled').length;
-            
-            let delayedCount = 0;
+        function updateCurrentDate() {
             const now = new Date();
-            
-            state.globalData.forEach(o => {
-                if (o.status === 'Delivered' || o.status === 'Cancelled') return;
-                
-                try {
-                    const orderDate = new Date(o.date);
-                    if (!isNaN(orderDate.getTime())) {
-                        const minutesDiff = (now - orderDate) / 60000;
-                        if (minutesDiff > CONFIG.DELAY_THRESHOLD_MINUTES) {
-                            delayedCount++;
-                            o._isLate = true;
-                        } else {
-                            o._isLate = false;
-                        }
-                    }
-                } catch (e) {
-                    o._isLate = false;
-                }
+            const dateStr = now.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
             });
+            document.getElementById('currentDate').textContent = dateStr;
+        }
 
-            const totalRevenue = state.globalData.reduce((sum, o) => sum + o.total, 0);
-            const deliveredRevenue = state.globalData
-                .filter(o => o.status === 'Delivered')
-                .reduce((sum, o) => sum + o.total, 0);
+        function updateStats() {
+            const orders = state.dailyData.orders;
+            const actions = state.dailyData.actions;
             
-            const successRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
-
-            // Update KPI displays
-            document.getElementById('kpiTotal').textContent = total;
+            // Calculate stats
+            const totalOrders = orders.length;
+            const delivered = orders.filter(o => o.status === 'Delivered').length;
+            const delayed = orders.filter(o => o.status === 'Delayed').length;
+            const cancelled = orders.filter(o => o.status === 'Cancelled').length;
+            
+            const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+            const successRate = totalOrders > 0 ? Math.round((delivered / totalOrders) * 100) : 0;
+            const cancelRate = totalOrders > 0 ? Math.round((cancelled / totalOrders) * 100) : 0;
+            
+            // Unique agents
+            const agents = [...new Set(actions.map(a => a.agent))];
+            
+            // Update UI
+            document.getElementById('kpiTotal').textContent = totalOrders;
             document.getElementById('kpiDelivered').textContent = delivered;
-            document.getElementById('kpiDelayed').textContent = delayedCount;
+            document.getElementById('kpiDelayed').textContent = delayed;
             document.getElementById('kpiCancelled').textContent = cancelled;
             document.getElementById('kpiRevenue').textContent = `$${totalRevenue.toFixed(2)}`;
+            document.getElementById('kpiAgents').textContent = agents.length;
             document.getElementById('kpiSuccessRate').textContent = `${successRate}%`;
-
-            // Calculate changes (demo - in real app, compare with previous period)
-            document.getElementById('kpiTotalChange').textContent = '↑ 12% this week';
-            document.getElementById('kpiDeliveredChange').textContent = '↑ 8% this week';
-            document.getElementById('kpiDelayedChange').textContent = '↓ 3% this week';
-            document.getElementById('kpiCancelledChange').textContent = '↓ 5% this week';
-            document.getElementById('kpiRevenueChange').textContent = '↑ 15% this week';
-            document.getElementById('kpiSuccessRateChange').textContent = '↑ 4% this week';
+            document.getElementById('kpiCancelRate').textContent = `${cancelRate}%`;
+            document.getElementById('kpiAvgOrder').textContent = `$${totalOrders > 0 ? (totalRevenue / totalOrders).toFixed(2) : '0'}`;
+            document.getElementById('kpiActions').textContent = actions.length;
+            
+            // Update counts in header
+            document.getElementById('ordersCount').textContent = `Orders: ${totalOrders}`;
+            document.getElementById('actionsCount').textContent = `Actions: ${actions.length}`;
+            document.getElementById('actionCountBadge').textContent = actions.length;
         }
 
-        function applyFilters() {
-            state.filters.status = document.getElementById('filterStatus').value;
-            state.filters.branch = document.getElementById('filterBranch').value;
-            state.filters.search = document.getElementById('searchInput').value.toLowerCase();
+        // ================= ORDER MANAGEMENT =================
+        function updateOrderStatus(orderId, newStatus, reason = '') {
+            const orderIndex = state.dailyData.orders.findIndex(o => o.id === orderId);
+            if (orderIndex === -1) return;
             
-            state.filteredData = state.globalData.filter(order => {
-                // Status filter
-                if (state.filters.status !== 'all' && order.status !== state.filters.status) {
-                    return false;
-                }
-                
-                // Branch filter
-                if (state.filters.branch !== 'all' && order.branch !== state.filters.branch) {
-                    return false;
-                }
-                
-                // Search filter
-                if (state.filters.search) {
-                    const searchStr = state.filters.search;
-                    return (
-                        order.id.toLowerCase().includes(searchStr) ||
-                        order.customer.toLowerCase().includes(searchStr) ||
-                        order.reason.toLowerCase().includes(searchStr)
-                    );
-                }
-                
-                return true;
-            });
-
-            applySorting();
-        }
-
-        function applySorting() {
-            const sortValue = document.getElementById('sortBy').value;
-            let field, direction;
+            const order = state.dailyData.orders[orderIndex];
+            const oldStatus = order.status;
             
-            switch (sortValue) {
-                case 'date_desc':
-                    field = 'date';
-                    direction = 'desc';
-                    break;
-                case 'date_asc':
-                    field = 'date';
-                    direction = 'asc';
-                    break;
-                case 'total_desc':
-                    field = 'total';
-                    direction = 'desc';
-                    break;
-                case 'total_asc':
-                    field = 'total';
-                    direction = 'asc';
-                    break;
-                case 'status':
-                    field = 'status';
-                    direction = 'asc';
-                    break;
-                default:
-                    field = 'date';
-                    direction = 'desc';
+            // Update order
+            order.status = newStatus;
+            order.reason = reason;
+            order.updatedBy = state.currentUser;
+            order.updatedAt = new Date().toISOString();
+            
+            // Log action
+            const action = {
+                id: Date.now(),
+                orderId: orderId,
+                action: `Status changed: ${oldStatus} → ${newStatus}`,
+                agent: state.currentUser,
+                timestamp: new Date().toISOString(),
+                details: reason || 'No additional details',
+                type: newStatus.toLowerCase()
+            };
+            
+            state.dailyData.actions.push(action);
+            
+            // Track agent if new
+            if (!state.dailyData.agents.includes(state.currentUser)) {
+                state.dailyData.agents.push(state.currentUser);
             }
             
-            state.sortConfig = { field, direction };
-            sortTable(field);
+            updateStats();
+            updateRecentActivity();
+            updateOrdersTable();
+            saveState();
+            
+            showToast(`Order ${orderId} updated to ${newStatus}`, 'success');
         }
 
-        function sortTable(field) {
-            // Toggle direction if clicking same field
-            if (state.sortConfig.field === field) {
-                state.sortConfig.direction = state.sortConfig.direction === 'asc' ? 'desc' : 'asc';
-            } else {
-                state.sortConfig.field = field;
-                state.sortConfig.direction = 'asc';
+        function cancelOrder(orderId) {
+            const reason = prompt('Enter cancellation reason:');
+            if (reason && reason.trim()) {
+                updateOrderStatus(orderId, 'Cancelled', reason.trim());
             }
-            
-            state.filteredData.sort((a, b) => {
-                let aValue = a[field];
-                let bValue = b[field];
-                
-                // Handle dates
-                if (field === 'date' || field === 'updatedAt') {
-                    aValue = new Date(aValue).getTime();
-                    bValue = new Date(bValue).getTime();
-                }
-                
-                // Handle strings
-                if (typeof aValue === 'string') {
-                    aValue = aValue.toLowerCase();
-                    bValue = bValue.toLowerCase();
-                }
-                
-                if (aValue < bValue) {
-                    return state.sortConfig.direction === 'asc' ? -1 : 1;
-                }
-                if (aValue > bValue) {
-                    return state.sortConfig.direction === 'asc' ? 1 : -1;
-                }
-                return 0;
-            });
-            
-            renderTable();
         }
 
-        function applySearch() {
-            applyFilters();
+        function deliverOrder(orderId) {
+            updateOrderStatus(orderId, 'Delivered', 'Delivered successfully');
         }
 
-        function renderTable() {
+        function delayOrder(orderId) {
+            const reason = prompt('Enter delay reason:');
+            if (reason && reason.trim()) {
+                updateOrderStatus(orderId, 'Delayed', reason.trim());
+            }
+        }
+
+        function updateOrdersTable() {
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
             
-            document.getElementById('tableInfo').textContent = 
-                `Showing ${state.filteredData.length} of ${state.globalData.length} orders`;
+            const orders = state.dailyData.orders;
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
             
-            if (state.filteredData.length === 0) {
+            const filteredOrders = orders.filter(order => {
+                const matchesSearch = searchTerm === '' || 
+                    order.id.toLowerCase().includes(searchTerm) ||
+                    order.customer.toLowerCase().includes(searchTerm) ||
+                    order.branch.toLowerCase().includes(searchTerm);
+                
+                const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+                
+                return matchesSearch && matchesStatus;
+            });
+            
+            if (filteredOrders.length === 0) {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td colspan="10" style="text-align: center; padding: 40px; color: var(--text-gray);">
@@ -1703,41 +1326,22 @@
                 return;
             }
             
-            state.filteredData.forEach((order) => {
+            filteredOrders.forEach(order => {
                 const tr = document.createElement('tr');
-                if (order._isLate && order.status !== 'Delivered' && order.status !== 'Cancelled') {
-                    tr.classList.add('late');
-                }
                 
-                // Format date
-                let dateStr = 'Invalid Date';
-                try {
-                    const date = new Date(order.date);
-                    dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                } catch (e) {
-                    dateStr = order.date;
-                }
-                
-                // Format last update
-                let updatedStr = '-';
-                if (order.updatedAt) {
-                    try {
-                        const updated = new Date(order.updatedAt);
-                        updatedStr = updated.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                    } catch (e) {
-                        updatedStr = order.updatedAt;
-                    }
-                }
+                // Format dates
+                const orderDate = new Date(order.date);
+                const updatedDate = order.updatedAt ? new Date(order.updatedAt) : null;
                 
                 tr.innerHTML = `
                     <td><strong>${order.id}</strong></td>
                     <td>${order.customer}</td>
-                    <td>${dateStr}</td>
-                    <td>$${order.total.toFixed(2)}</td>
-                    <td><span class="agent-pill">${order.branch}</span></td>
+                    <td>${orderDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                    <td>$${order.total ? order.total.toFixed(2) : '0.00'}</td>
+                    <td><span class="status-badge">${order.branch}</span></td>
                     <td>
                         <select class="status-badge status-${order.status.toLowerCase()}" 
-                                onchange="handleStatusChange('${order.id}', this.value)"
+                                onchange="updateOrderStatus('${order.id}', this.value, 'Status updated')"
                                 style="border: none; padding: 6px 10px; cursor: pointer; font-weight: 600;">
                             <option value="Pending" ${order.status === 'Pending' ? 'selected' : ''}>Pending</option>
                             <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
@@ -1746,14 +1350,16 @@
                         </select>
                     </td>
                     <td style="max-width: 200px; font-size: 0.85rem;">${order.reason || '-'}</td>
-                    <td><span class="agent-pill">${order.updatedBy || '-'}</span></td>
-                    <td style="font-size: 0.85rem; color: var(--text-gray);">${updatedStr}</td>
+                    <td><span class="status-badge">${order.updatedBy || '-'}</span></td>
+                    <td style="font-size: 0.85rem; color: var(--text-gray);">
+                        ${updatedDate ? updatedDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}
+                    </td>
                     <td>
                         <div class="action-buttons">
-                            <button class="btn-icon btn-edit" onclick="editOrder('${order.id}')">
-                                <i class="fas fa-edit"></i>
+                            <button class="btn-icon btn-success" onclick="deliverOrder('${order.id}')" title="Mark as Delivered">
+                                <i class="fas fa-check"></i>
                             </button>
-                            <button class="btn-icon btn-cancel" onclick="confirmCancelOrder('${order.id}')">
+                            <button class="btn-icon btn-danger" onclick="cancelOrder('${order.id}')" title="Cancel Order">
                                 <i class="fas fa-ban"></i>
                             </button>
                         </div>
@@ -1761,406 +1367,522 @@
                 `;
                 tbody.appendChild(tr);
             });
-            
-            updateCharts();
         }
 
-        // ================= ENHANCED ORDER MANAGEMENT =================
-        function handleStatusChange(id, newStatus) {
-            const orderIndex = state.globalData.findIndex(o => o.id === id);
-            if (orderIndex === -1) return;
-            
-            const order = state.globalData[orderIndex];
-            
-            if (newStatus === 'Cancelled') {
-                if (!order.reason) {
-                    state.editingOrderId = id;
-                    document.getElementById('cancelModal').style.display = 'flex';
-                    return;
-                }
-            }
-            
-            updateOrderStatus(id, newStatus, order.reason);
+        function filterOrders() {
+            updateOrdersTable();
         }
 
-        function confirmCancelOrder(id) {
-            state.editingOrderId = id;
-            document.getElementById('cancelModal').style.display = 'flex';
-        }
-
-        function closeCancelModal() {
-            document.getElementById('cancelModal').style.display = 'none';
-            document.getElementById('cancelReason').value = '';
-            document.getElementById('otherReason').value = '';
-            document.getElementById('otherReasonContainer').style.display = 'none';
-            document.getElementById('cancelNotes').value = '';
-            state.editingOrderId = null;
-        }
-
-        function confirmCancellation() {
-            const reason = document.getElementById('cancelReason').value;
-            const otherReason = document.getElementById('otherReason').value;
-            const notes = document.getElementById('cancelNotes').value;
+        // ================= ACTION LOGGING =================
+        function updateRecentActivity() {
+            const container = document.getElementById('recentActivity');
+            container.innerHTML = '';
             
-            if (!reason) {
-                showToast('Please select a cancellation reason', 'warning');
+            const recentActions = state.dailyData.actions.slice(-10).reverse(); // Last 10 actions
+            
+            if (recentActions.length === 0) {
+                container.innerHTML = `
+                    <div style="padding: 40px; text-align: center; color: var(--text-gray);">
+                        <i class="fas fa-history" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.3;"></i>
+                        <div>No actions recorded yet</div>
+                    </div>
+                `;
                 return;
             }
             
-            const finalReason = reason === 'Other' ? otherReason : reason;
-            if (!finalReason) {
-                showToast('Please specify the cancellation reason', 'warning');
-                return;
-            }
-            
-            const fullReason = notes ? `${finalReason} (${notes})` : finalReason;
-            updateOrderStatus(state.editingOrderId, 'Cancelled', fullReason);
-            
-            closeCancelModal();
-            showToast(`Order ${state.editingOrderId} cancelled`, 'success');
-        }
-
-        function updateOrderStatus(id, status, reason = '') {
-            const orderIndex = state.globalData.findIndex(o => o.id === id);
-            if (orderIndex === -1) return;
-            
-            state.globalData[orderIndex].status = status;
-            state.globalData[orderIndex].reason = reason;
-            state.globalData[orderIndex].updatedBy = state.currentUser;
-            state.globalData[orderIndex].updatedAt = new Date().toISOString();
-            
-            state.updatesMade++;
-            updateSessionDisplay();
-            
-            applyFilters();
-            saveState();
-        }
-
-        function editOrder(id) {
-            // In a real app, this would open an edit modal
-            showToast(`Edit functionality for order ${id} would open here`, 'info');
-        }
-
-        // ================= ENHANCED SUMMARY SYSTEM =================
-        function openSummaryModal() {
-            document.getElementById('summaryInput').value = state.summary;
-            document.getElementById('summaryModal').style.display = 'flex';
-        }
-
-        function closeSummaryModal() {
-            document.getElementById('summaryModal').style.display = 'none';
-        }
-
-        function saveSummary() {
-            const note = document.getElementById('summaryInput').value.trim();
-            const priority = document.getElementById('summaryPriority').value;
-            
-            if (!note) {
-                showToast('Please enter a summary note', 'warning');
-                return;
-            }
-            
-            state.summary = `[${priority.toUpperCase()}] ${note}`;
-            closeSummaryModal();
-            
-            showToast('Summary saved successfully', 'success');
-            saveState();
-        }
-
-        function dismissSummary() {
-            document.getElementById('summaryAlert').style.display = 'none';
-        }
-
-        // ================= ENHANCED EXPORT SYSTEM =================
-        function exportExcel() {
-            showLoading();
-            
-            try {
-                // Prepare orders data
-                const exportData = state.globalData.map(o => ({
-                    "Order ID": o.id,
-                    "Customer": o.customer,
-                    "Order Date": o.date,
-                    "Total": o.total,
-                    "Branch": o.branch,
-                    "Status": o.status,
-                    "Reason": o.reason,
-                    "Updated By": o.updatedBy,
-                    "Updated At": o.updatedAt,
-                    "Agent Notes": o._notes || ''
-                }));
+            recentActions.forEach(action => {
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
                 
-                const ws = XLSX.utils.json_to_sheet(exportData);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Orders");
+                const actionTime = new Date(action.timestamp);
+                const timeStr = actionTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 
-                // Add summary sheet
-                if (state.summary) {
-                    const summaryData = [{
-                        "Manager": state.currentUser,
-                        "Date": new Date().toISOString(),
-                        "Summary": state.summary,
-                        "Total Orders": state.globalData.length,
-                        "Delivered": state.globalData.filter(o => o.status === 'Delivered').length,
-                        "Cancelled": state.globalData.filter(o => o.status === 'Cancelled').length,
-                        "Session Duration": formatDuration(new Date() - state.sessionStart)
-                    }];
-                    
-                    const wsSummary = XLSX.utils.json_to_sheet(summaryData);
-                    XLSX.utils.book_append_sheet(wb, wsSummary, "Shift_Summary");
-                }
+                let iconType = 'updated';
+                if (action.type === 'delivered') iconType = 'delivered';
+                else if (action.type === 'cancelled') iconType = 'cancelled';
+                else if (action.type === 'delayed') iconType = 'delayed';
                 
-                // Add audit log
-                const auditData = state.globalData
-                    .filter(o => o.updatedBy)
-                    .map(o => ({
-                        "Order ID": o.id,
-                        "Action": `Status changed to ${o.status}`,
-                        "Agent": o.updatedBy,
-                        "Timestamp": o.updatedAt,
-                        "Reason": o.reason
-                    }));
+                entry.innerHTML = `
+                    <div class="log-icon ${iconType}">
+                        <i class="fas fa-${iconType === 'delivered' ? 'check' : iconType === 'cancelled' ? 'ban' : iconType === 'delayed' ? 'clock' : 'edit'}"></i>
+                    </div>
+                    <div class="log-content">
+                        <div class="log-time">${timeStr} • By ${action.agent}</div>
+                        <div class="log-action">${action.action}</div>
+                        <div class="log-details">Order: ${action.orderId} • ${action.details}</div>
+                    </div>
+                `;
                 
-                if (auditData.length > 0) {
-                    const wsAudit = XLSX.utils.json_to_sheet(auditData);
-                    XLSX.utils.book_append_sheet(wb, wsAudit, "Audit_Log");
-                }
-                
-                // Generate filename
-                const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-                const filename = `Ops_Report_${state.currentUser.replace(/\s+/g, '_')}_${timestamp}.xlsx`;
-                
-                XLSX.writeFile(wb, filename);
-                
-                hideLoading();
-                showToast(`Report exported: ${filename}`, 'success');
-            } catch (error) {
-                hideLoading();
-                showToast('Error exporting file: ' + error.message, 'danger');
-                console.error(error);
-            }
-        }
-
-        // ================= ENHANCED VISUALIZATION =================
-        function updateCharts() {
-            updateStatusChart();
-            updateTrendChart();
-        }
-
-        function updateStatusChart() {
-            const ctx = document.getElementById('statusChart').getContext('2d');
-            const chartType = document.getElementById('chartType').value;
-            
-            const statusCounts = {
-                Pending: 0,
-                Delivered: 0,
-                Delayed: 0,
-                Cancelled: 0
-            };
-            
-            state.filteredData.forEach(o => {
-                if (statusCounts[o.status] !== undefined) {
-                    statusCounts[o.status]++;
-                }
-            });
-            
-            if (state.charts.status) {
-                state.charts.status.destroy();
-            }
-            
-            state.charts.status = new Chart(ctx, {
-                type: chartType,
-                data: {
-                    labels: Object.keys(statusCounts),
-                    datasets: [{
-                        data: Object.values(statusCounts),
-                        backgroundColor: [
-                            'rgba(251, 191, 36, 0.8)',
-                            'rgba(76, 201, 240, 0.8)',
-                            'rgba(247, 37, 133, 0.8)',
-                            'rgba(108, 117, 125, 0.8)'
-                        ],
-                        borderColor: [
-                            'rgb(251, 191, 36)',
-                            'rgb(76, 201, 240)',
-                            'rgb(247, 37, 133)',
-                            'rgb(108, 117, 125)'
-                        ],
-                        borderWidth: 1,
-                        hoverOffset: 15
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 20,
-                                usePointStyle: true
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const value = context.raw;
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = Math.round((value / total) * 100);
-                                    return `${context.label}: ${value} (${percentage}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
+                container.appendChild(entry);
             });
         }
 
-        function updateTrendChart() {
-            const ctx = document.getElementById('trendChart').getContext('2d');
-            const period = document.getElementById('trendPeriod').value;
-            
-            // Generate sample trend data
-            const labels = period === 'hourly' 
-                ? Array.from({length: 12}, (_, i) => `${9 + i}:00`)
-                : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-            
-            const deliveredData = labels.map(() => Math.floor(Math.random() * 20) + 10);
-            const delayedData = labels.map(() => Math.floor(Math.random() * 5) + 1);
-            
-            if (state.charts.trend) {
-                state.charts.trend.destroy();
-            }
-            
-            state.charts.trend = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'Delivered',
-                            data: deliveredData,
-                            borderColor: 'rgb(76, 201, 240)',
-                            backgroundColor: 'rgba(76, 201, 240, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        },
-                        {
-                            label: 'Delayed',
-                            data: delayedData,
-                            borderColor: 'rgb(247, 37, 133)',
-                            backgroundColor: 'rgba(247, 37, 133, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top'
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Number of Orders'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function updateChartType() {
-            updateStatusChart();
-        }
-
-        // ================= ENHANCED UTILITIES =================
-        function updateSessionTime() {
-            if (!state.sessionStart) return;
-            
-            const now = new Date();
-            const diff = now - state.sessionStart;
-            const hours = Math.floor(diff / 3600000);
-            const minutes = Math.floor((diff % 3600000) / 60000);
-            
-            document.getElementById('sessionTime').textContent = 
-                `Session: ${hours}h ${minutes}m`;
-        }
-
-        function updateSessionDisplay() {
-            document.getElementById('updatesCount').textContent = 
-                `Updates: ${state.updatesMade}`;
-        }
-
-        function updateOrdersCount() {
-            document.getElementById('ordersCount').textContent = 
-                `Orders: ${state.globalData.length}`;
-        }
-
-        function refreshDashboard() {
-            calculateStats();
-            applyFilters();
-            showToast('Dashboard refreshed', 'info');
-        }
-
-        function formatDuration(ms) {
-            const hours = Math.floor(ms / 3600000);
-            const minutes = Math.floor((ms % 3600000) / 60000);
-            return `${hours}h ${minutes}m`;
-        }
-
-        function checkSessionTimeout() {
-            const lastActivity = localStorage.getItem('ops_dashboard_last_activity');
-            if (lastActivity) {
-                const inactiveTime = (Date.now() - parseInt(lastActivity)) / 1000;
-                if (inactiveTime > CONFIG.SESSION_TIMEOUT) {
-                    showToast('Session expired due to inactivity', 'warning');
-                    logoutAgent();
-                }
-            }
-            localStorage.setItem('ops_dashboard_last_activity', Date.now());
-        }
-
-        function autoSaveState() {
-            if (state.updatesMade > 0 || state.summary) {
-                saveState();
-            }
-        }
-
-        function saveState() {
-            const stateToSave = {
-                data: state.globalData,
-                summary: state.summary,
-                updatesMade: state.updatesMade,
-                sessionStart: state.sessionStart
-            };
-            
-            localStorage.setItem('ops_dashboard_state', JSON.stringify(stateToSave));
-        }
-
+        // ================= MANAGER FUNCTIONS =================
         function showSection(sectionId) {
+            // Hide all sections
+            document.getElementById('dashboardSection').style.display = 'none';
+            document.getElementById('managerSection').style.display = 'none';
+            
+            // Show selected section
+            document.getElementById(sectionId + 'Section').style.display = 'block';
+            
+            // Update page title
+            const titles = {
+                'dashboard': 'Operations Dashboard',
+                'manager': 'Manager Control Panel',
+                'orders': 'Order Management',
+                'actions': 'Daily Actions Log',
+                'reports': 'Daily Reports'
+            };
+            document.getElementById('pageTitle').textContent = titles[sectionId] || 'Operations Dashboard';
+            
             // Update active nav item
             document.querySelectorAll('.nav-item').forEach(item => {
                 item.classList.remove('active');
             });
             event.target.closest('.nav-item').classList.add('active');
             
-            // In a real app, this would show different sections
-            showToast(`Navigating to ${sectionId} section`, 'info');
+            // Refresh section data
+            if (sectionId === 'manager') {
+                updateManagerPanel();
+            }
         }
 
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            sidebar.classList.toggle('show');
+        function updateManagerPanel() {
+            // Update daily summary
+            const orders = state.dailyData.orders;
+            const actions = state.dailyData.actions;
+            
+            const totalOrders = orders.length;
+            const delivered = orders.filter(o => o.status === 'Delivered').length;
+            const cancelled = orders.filter(o => o.status === 'Cancelled').length;
+            const successRate = totalOrders > 0 ? Math.round((delivered / totalOrders) * 100) : 0;
+            const cancelRate = totalOrders > 0 ? Math.round((cancelled / totalOrders) * 100) : 0;
+            
+            document.getElementById('dailySummary').innerHTML = `
+                <p>• Total Orders Processed: <strong>${totalOrders}</strong></p>
+                <p>• Successful Deliveries: <strong>${delivered}</strong> (<strong>${successRate}%</strong> success rate)</p>
+                <p>• Cancellation Rate: <strong>${cancelRate}%</strong></p>
+                <p>• Active Agents Today: <strong>${state.dailyData.agents.length}</strong></p>
+                <p>• Total Actions Recorded: <strong>${actions.length}</strong></p>
+            `;
+            
+            // Update agent performance
+            const agentPerformance = document.getElementById('agentPerformance');
+            agentPerformance.innerHTML = '';
+            
+            state.dailyData.agents.forEach(agent => {
+                const agentActions = actions.filter(a => a.agent === agent);
+                const agentOrders = orders.filter(o => o.updatedBy === agent);
+                
+                const div = document.createElement('div');
+                div.style.marginBottom = '15px';
+                div.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                        <span><strong>${agent}</strong></span>
+                        <span>${agentActions.length} actions</span>
+                    </div>
+                    <div style="background: var(--border); height: 8px; border-radius: 4px; overflow: hidden;">
+                        <div style="width: ${Math.min(agentActions.length * 10, 100)}%; height: 100%; background: var(--primary);"></div>
+                    </div>
+                `;
+                agentPerformance.appendChild(div);
+            });
+            
+            // Update complete action log
+            updateCompleteActionLog();
         }
 
-        // ================= ENHANCED UI COMPONENTS =================
+        function updateCompleteActionLog() {
+            const container = document.getElementById('completeActionLog');
+            container.innerHTML = '';
+            
+            const actions = state.dailyData.actions.slice().reverse(); // Most recent first
+            
+            if (actions.length === 0) {
+                container.innerHTML = `
+                    <div style="padding: 40px; text-align: center; color: var(--text-gray);">
+                        <i class="fas fa-clipboard-list" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.3;"></i>
+                        <div>No actions recorded today</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            actions.forEach(action => {
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                
+                const actionTime = new Date(action.timestamp);
+                const timeStr = actionTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const dateStr = actionTime.toLocaleDateString();
+                
+                let iconType = 'updated';
+                if (action.type === 'delivered') iconType = 'delivered';
+                else if (action.type === 'cancelled') iconType = 'cancelled';
+                else if (action.type === 'delayed') iconType = 'delayed';
+                
+                entry.innerHTML = `
+                    <div class="log-icon ${iconType}">
+                        <i class="fas fa-${iconType === 'delivered' ? 'check' : iconType === 'cancelled' ? 'ban' : iconType === 'delayed' ? 'clock' : 'edit'}"></i>
+                    </div>
+                    <div class="log-content">
+                        <div class="log-time">${dateStr} ${timeStr} • ${action.agent}</div>
+                        <div class="log-action">${action.action}</div>
+                        <div class="log-details">Order: ${action.orderId} • ${action.details}</div>
+                    </div>
+                `;
+                
+                container.appendChild(entry);
+            });
+        }
+
+        // ================= FILE HANDLING =================
+        function downloadTemplate() {
+            const templateData = [
+                ["Order ID", "Customer", "Order Date", "Total", "Branch", "Status", "Reason", "Updated By", "Updated At"],
+                ["ORD-1001", "John Smith", new Date().toISOString(), 150.00, "Hamdan", "Pending", "", "", ""],
+                ["ORD-1002", "Fatima Mohammed", new Date(Date.now() - 3600000).toISOString(), 89.99, "Khalidiyah", "Delivered", "Delivered on time", "Agent 1", new Date().toISOString()]
+            ];
+            
+            const ws = XLSX.utils.aoa_to_sheet(templateData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Orders");
+            XLSX.writeFile(wb, "Ops_Dashboard_Template.xlsx");
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    let jsonOrders = [];
+                    workbook.SheetNames.forEach(sheetName => {
+                        const sheet = workbook.Sheets[sheetName];
+                        const rows = XLSX.utils.sheet_to_json(sheet);
+                        jsonOrders = jsonOrders.concat(rows);
+                    });
+                    
+                    // Process and normalize data
+                    state.dailyData.orders = jsonOrders.map((row, index) => {
+                        const getVal = (keys, defaultValue = '') => {
+                            for (let key of keys) {
+                                if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+                                    return row[key];
+                                }
+                            }
+                            return defaultValue;
+                        };
+                        
+                        return {
+                            id: getVal(['Order ID', 'Order no', 'id', 'ID'], `ORD-${1000 + index}`),
+                            customer: getVal(['Customer', 'Cus. Name', 'Client'], 'Unknown Customer'),
+                            date: getVal(['Order Date', 'Date', 'Time'], new Date().toISOString()),
+                            total: parseFloat(getVal(['Total', 'Amount', 'Order Total'], 0)) || 0,
+                            branch: getVal(['Branch', 'Outlet', 'Location'], 'Unknown'),
+                            status: getVal(['Status', 'status', 'Order Status'], 'Pending'),
+                            reason: getVal(['Reason', 'Notes', 'Comment'], ''),
+                            updatedBy: getVal(['Updated By', 'Agent', 'Modified By'], ''),
+                            updatedAt: getVal(['Updated At', 'Timestamp', 'Last Updated'], '')
+                        };
+                    });
+                    
+                    // Log the import action
+                    const importAction = {
+                        id: Date.now(),
+                        action: `Imported ${state.dailyData.orders.length} orders from Excel`,
+                        agent: state.currentUser,
+                        timestamp: new Date().toISOString(),
+                        details: `File: ${file.name}`,
+                        type: 'import'
+                    };
+                    
+                    state.dailyData.actions.push(importAction);
+                    
+                    updateStats();
+                    updateRecentActivity();
+                    updateOrdersTable();
+                    saveState();
+                    
+                    showToast(`Successfully imported ${state.dailyData.orders.length} orders`, 'success');
+                } catch (error) {
+                    showToast('Error processing file: ' + error.message, 'danger');
+                    console.error(error);
+                }
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        function loadDemoData() {
+            const branches = ['Hamdan', 'Khalidiyah', 'Muroor', 'Shabiha', 'Barsha'];
+            const customers = ['Ahmed Ali', 'Fatima Mohammed', 'John Smith', 'Sara Johnson', 'Mohammed Hassan'];
+            
+            const demoOrders = [];
+            const now = new Date();
+            
+            for (let i = 1; i <= CONFIG.DEMO_DATA_SIZE; i++) {
+                const hoursAgo = Math.floor(Math.random() * 8);
+                const orderDate = new Date(now.getTime() - hoursAgo * 3600000);
+                const statuses = ['Pending', 'Delivered', 'Delayed', 'Cancelled'];
+                const status = statuses[Math.floor(Math.random() * statuses.length)];
+                
+                demoOrders.push({
+                    id: `ORD-${1000 + i}`,
+                    customer: customers[Math.floor(Math.random() * customers.length)],
+                    date: orderDate.toISOString(),
+                    total: parseFloat((Math.random() * 200 + 20).toFixed(2)),
+                    branch: branches[Math.floor(Math.random() * branches.length)],
+                    status: status,
+                    reason: status === 'Delivered' ? 'Delivered successfully' : 
+                           status === 'Cancelled' ? 'Customer cancelled' : '',
+                    updatedBy: status !== 'Pending' ? 'Demo Agent' : '',
+                    updatedAt: status !== 'Pending' ? orderDate.toISOString() : ''
+                });
+            }
+            
+            state.dailyData.orders = demoOrders;
+            
+            // Add some demo actions
+            state.dailyData.actions = [
+                {
+                    id: Date.now() - 1000,
+                    orderId: 'ORD-1001',
+                    action: 'Status changed: Pending → Delivered',
+                    agent: 'Demo Agent',
+                    timestamp: new Date(now.getTime() - 2 * 3600000).toISOString(),
+                    details: 'Delivered successfully',
+                    type: 'delivered'
+                },
+                {
+                    id: Date.now() - 2000,
+                    orderId: 'ORD-1003',
+                    action: 'Status changed: Pending → Cancelled',
+                    agent: 'Demo Agent',
+                    timestamp: new Date(now.getTime() - 1 * 3600000).toISOString(),
+                    details: 'Customer cancelled',
+                    type: 'cancelled'
+                }
+            ];
+            
+            state.dailyData.agents = ['Demo Agent'];
+            
+            updateStats();
+            updateRecentActivity();
+            updateOrdersTable();
+            saveState();
+            
+            showToast(`Demo data loaded with ${demoOrders.length} orders`, 'success');
+        }
+
+        // ================= REPORTING =================
+        function exportDailyReport() {
+            showLoading();
+            
+            try {
+                // Prepare data
+                const reportData = {
+                    summary: {
+                        date: state.dailyData.date,
+                        totalOrders: state.dailyData.orders.length,
+                        delivered: state.dailyData.orders.filter(o => o.status === 'Delivered').length,
+                        delayed: state.dailyData.orders.filter(o => o.status === 'Delayed').length,
+                        cancelled: state.dailyData.orders.filter(o => o.status === 'Cancelled').length,
+                        activeAgents: state.dailyData.agents.length,
+                        totalActions: state.dailyData.actions.length,
+                        generatedBy: state.currentUser,
+                        generationTime: new Date().toISOString()
+                    },
+                    orders: state.dailyData.orders,
+                    actions: state.dailyData.actions,
+                    agents: state.dailyData.agents.map(agent => {
+                        const agentActions = state.dailyData.actions.filter(a => a.agent === agent);
+                        const agentOrders = state.dailyData.orders.filter(o => o.updatedBy === agent);
+                        return {
+                            agent: agent,
+                            actionCount: agentActions.length,
+                            orderCount: agentOrders.length,
+                            lastAction: agentActions.length > 0 ? 
+                                new Date(agentActions[agentActions.length - 1].timestamp).toISOString() : ''
+                        };
+                    })
+                };
+                
+                // Create workbook with multiple sheets
+                const wb = XLSX.utils.book_new();
+                
+                // Summary sheet
+                const summaryRows = [
+                    ["DAILY OPERATIONS REPORT", "", "", "", ""],
+                    ["Date", reportData.summary.date, "", "", ""],
+                    ["Generated By", reportData.summary.generatedBy, "", "", ""],
+                    ["Generation Time", new Date(reportData.summary.generationTime).toLocaleString(), "", "", ""],
+                    ["", "", "", "", ""],
+                    ["SUMMARY STATISTICS", "", "", "", ""],
+                    ["Total Orders", reportData.summary.totalOrders, "", "", ""],
+                    ["Delivered Orders", reportData.summary.delivered, "", "", ""],
+                    ["Delayed Orders", reportData.summary.delayed, "", "", ""],
+                    ["Cancelled Orders", reportData.summary.cancelled, "", "", ""],
+                    ["Active Agents", reportData.summary.activeAgents, "", "", ""],
+                    ["Total Actions", reportData.summary.totalActions, "", "", ""],
+                    ["", "", "", "", ""],
+                    ["Success Rate", `${reportData.summary.totalOrders > 0 ? Math.round((reportData.summary.delivered / reportData.summary.totalOrders) * 100) : 0}%`, "", "", ""],
+                    ["Cancellation Rate", `${reportData.summary.totalOrders > 0 ? Math.round((reportData.summary.cancelled / reportData.summary.totalOrders) * 100) : 0}%`, "", "", ""]
+                ];
+                
+                const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+                XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+                
+                // Orders sheet
+                const ordersSheet = XLSX.utils.json_to_sheet(reportData.orders);
+                XLSX.utils.book_append_sheet(wb, ordersSheet, "Orders");
+                
+                // Actions sheet
+                const actionsSheet = XLSX.utils.json_to_sheet(reportData.actions);
+                XLSX.utils.book_append_sheet(wb, actionsSheet, "Actions");
+                
+                // Agents sheet
+                const agentsSheet = XLSX.utils.json_to_sheet(reportData.agents);
+                XLSX.utils.book_append_sheet(wb, agentsSheet, "Agents");
+                
+                // Generate filename
+                const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+                const filename = `Daily_Report_${state.dailyData.date}_${timestamp}.xlsx`;
+                
+                XLSX.writeFile(wb, filename);
+                
+                hideLoading();
+                showToast(`Daily report exported: ${filename}`, 'success');
+            } catch (error) {
+                hideLoading();
+                showToast('Error exporting report: ' + error.message, 'danger');
+                console.error(error);
+            }
+        }
+
+        function generateEndOfDayReport() {
+            if (confirm('Generate End-of-Day Report and Archive Today\'s Data?')) {
+                exportDailyReport();
+                
+                // Archive today's data
+                archivePreviousDay(state.dailyData);
+                
+                // Reset for next day
+                state.dailyData = {
+                    orders: [],
+                    actions: [],
+                    agents: [],
+                    date: new Date().toISOString().split('T')[0]
+                };
+                
+                updateStats();
+                updateRecentActivity();
+                updateOrdersTable();
+                saveState();
+                
+                showToast('End-of-Day report generated and data archived', 'manager');
+            }
+        }
+
+        function endOfDayProcedure() {
+            if (state.userRole !== 'manager') {
+                showToast('Manager access required for End-of-Day procedure', 'warning');
+                return;
+            }
+            
+            const summary = prompt('Enter End-of-Day Summary Notes:');
+            if (summary !== null) {
+                // Add EOD action
+                const eodAction = {
+                    id: Date.now(),
+                    action: 'End-of-Day Procedure Executed',
+                    agent: state.currentUser,
+                    timestamp: new Date().toISOString(),
+                    details: summary,
+                    type: 'eod'
+                };
+                
+                state.dailyData.actions.push(eodAction);
+                
+                // Generate report
+                generateEndOfDayReport();
+            }
+        }
+
+        function backupSystemData() {
+            const allData = {
+                current: state.dailyData,
+                previous: state.previousDays,
+                systemInfo: {
+                    backedUpAt: new Date().toISOString(),
+                    user: state.currentUser,
+                    role: state.userRole
+                }
+            };
+            
+            const dataStr = JSON.stringify(allData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            saveAs(blob, `ops_backup_${new Date().toISOString().split('T')[0]}.json`);
+            
+            showToast('System data backed up successfully', 'success');
+        }
+
+        function exportCompleteLog() {
+            const allData = {
+                dailyData: state.dailyData,
+                previousDays: state.previousDays
+            };
+            
+            const dataStr = JSON.stringify(allData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            saveAs(blob, `complete_log_${new Date().toISOString().split('T')[0]}.json`);
+            
+            showToast('Complete log exported', 'success');
+        }
+
+        function resetForNextDay() {
+            if (state.userRole !== 'manager') {
+                showToast('Manager access required', 'warning');
+                return;
+            }
+            
+            if (confirm('Reset system for next day? This will archive today\'s data.')) {
+                archivePreviousDay(state.dailyData);
+                
+                state.dailyData = {
+                    orders: [],
+                    actions: [],
+                    agents: [],
+                    date: new Date().toISOString().split('T')[0]
+                };
+                
+                updateStats();
+                updateRecentActivity();
+                updateOrdersTable();
+                saveState();
+                
+                showToast('System reset for new day', 'manager');
+            }
+        }
+
+        // ================= UTILITY FUNCTIONS =================
+        function refreshDashboard() {
+            updateStats();
+            updateRecentActivity();
+            updateOrdersTable();
+            showToast('Dashboard refreshed', 'info');
+        }
+
+        function saveState() {
+            const stateToSave = state.dailyData;
+            localStorage.setItem('ops_daily_state', JSON.stringify(stateToSave));
+        }
+
         function showToast(message, type = 'info') {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
@@ -2170,20 +1892,20 @@
                 success: 'check-circle',
                 warning: 'exclamation-triangle',
                 danger: 'times-circle',
-                info: 'info-circle'
+                info: 'info-circle',
+                manager: 'user-tie'
             };
             
             toast.innerHTML = `
-                <div class="toast-icon">
-                    <i class="fas fa-${icons[type] || 'info-circle'}"></i>
+                <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
+                    <i class="fas fa-${icons[type] || 'info-circle'}" style="color: var(--${type});"></i>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600;">${message}</div>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; color: var(--text-gray); cursor: pointer;">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
-                <div style="flex: 1;">
-                    <div style="font-weight: 600; margin-bottom: 2px;">${type.charAt(0).toUpperCase() + type.slice(1)}</div>
-                    <div style="font-size: 0.9rem; color: var(--text-gray);">${message}</div>
-                </div>
-                <button onclick="this.parentElement.remove()" style="background: none; border: none; color: var(--text-gray); cursor: pointer;">
-                    <i class="fas fa-times"></i>
-                </button>
             `;
             
             container.appendChild(toast);
@@ -2191,8 +1913,7 @@
             // Auto-remove after 5 seconds
             setTimeout(() => {
                 if (toast.parentElement) {
-                    toast.style.animation = 'slideOutRight 0.3s ease forwards';
-                    setTimeout(() => toast.remove(), 300);
+                    toast.remove();
                 }
             }, 5000);
         }
@@ -2203,6 +1924,11 @@
 
         function hideLoading() {
             document.getElementById('loadingOverlay').style.display = 'none';
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('show');
         }
 
         // Initialize
