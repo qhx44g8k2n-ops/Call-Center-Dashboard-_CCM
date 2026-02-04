@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manager Verification Dashboard v2.1 - Daily Reporting</title>
+    <title>Manager Verification Dashboard v4 - Enhanced Alerts & Flowchart</title>
     
     <!-- Libraries -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 
     <style>
         :root {
@@ -381,6 +382,37 @@
             background: #f8f9fa;
         }
 
+        /* CRITICAL ALERT STYLES */
+        .critical-alert {
+            animation: pulse 1.5s infinite;
+            border: 2px solid var(--danger);
+            background: linear-gradient(45deg, rgba(255, 0, 84, 0.1), rgba(255, 0, 84, 0.05));
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 0, 84, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 0, 84, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 0, 84, 0); }
+        }
+
+        .warning-alert {
+            border: 2px solid var(--warning);
+            background: linear-gradient(45deg, rgba(247, 37, 133, 0.1), rgba(247, 37, 133, 0.05));
+        }
+
+        /* Time Indicators */
+        .time-indicator {
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 12px;
+            display: inline-block;
+        }
+
+        .time-normal { background: rgba(76, 201, 240, 0.2); color: #0891b2; }
+        .time-warning { background: rgba(247, 37, 133, 0.2); color: #be185d; }
+        .time-critical { background: rgba(255, 0, 84, 0.2); color: #721c24; }
+
         /* Manager Panel */
         .manager-panel {
             background: white;
@@ -424,6 +456,21 @@
         .summary-card p {
             color: var(--text-gray);
             line-height: 1.6;
+        }
+
+        /* Flowchart Container */
+        .flowchart-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: auto;
+        }
+
+        .mermaid {
+            text-align: center;
+            margin: 0 auto;
         }
 
         /* Action Log */
@@ -552,6 +599,43 @@
         .toast.warning { border-left-color: var(--warning); }
         .toast.danger { border-left-color: var(--danger); }
         .toast.manager { border-left-color: var(--manager); }
+        .toast.critical { 
+            border-left-color: var(--danger);
+            animation: criticalToast 0.5s ease forwards;
+        }
+
+        @keyframes criticalToast {
+            0% { transform: translateX(100%); opacity: 0; }
+            50% { transform: translateX(-10px); opacity: 1; }
+            100% { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Countdown Timer */
+        .countdown-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 2500;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+            display: none;
+        }
+
+        .countdown-timer {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            color: var(--dark);
+            margin-bottom: 10px;
+        }
+
+        .countdown-label {
+            font-size: 0.9rem;
+            color: var(--text-gray);
+            text-align: center;
+        }
 
         /* Loading Overlay */
         .loading-overlay {
@@ -654,6 +738,25 @@
     </style>
 </head>
 <body>
+    <!-- Audio for Alerts -->
+    <audio id="alertSound">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="warningSound">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-warning-alarm-buzzer-958.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="criticalSound">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-sci-fi-alarm-905.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Countdown Timer -->
+    <div class="countdown-container" id="countdownTimer">
+        <div class="countdown-timer" id="countdownDisplay">00:00:00</div>
+        <div class="countdown-label">End of Day Countdown</div>
+    </div>
+
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
 
@@ -667,8 +770,8 @@
         <div class="modal">
             <div style="margin-bottom: 30px; text-align: center;">
                 <i class="fas fa-chart-network" style="font-size: 4rem; color: var(--primary); margin-bottom: 15px;"></i>
-                <h2 style="margin: 0; color: var(--dark);">Daily Operations Dashboard</h2>
-                <p style="color: var(--text-gray); margin-top: 10px;">End-of-Day Reporting System</p>
+                <h2 style="margin: 0; color: var(--dark);">Daily Operations Dashboard v4</h2>
+                <p style="color: var(--text-gray); margin-top: 10px;">Enhanced Alerts & Sound System</p>
             </div>
             
             <div style="margin: 30px 0;">
@@ -690,6 +793,7 @@
                     <div style="margin-bottom: 25px;">
                         <label style="display: block; font-weight: 600; margin-bottom: 8px; color: var(--dark);">Shift Code</label>
                         <input type="password" id="shiftCodeInput" class="status-badge" placeholder="Enter shift access code" style="width: 100%; padding: 12px; border: 2px solid var(--border); background: white;">
+                        <small style="color: var(--text-gray); display: block; margin-top: 5px;">Default: OPERATIONS2024</small>
                     </div>
                 </div>
                 
@@ -724,7 +828,7 @@
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <i class="fas fa-chart-network" style="font-size: 1.8rem; color: #4cc9f0;"></i>
-                <h2>Ops Dashboard</h2>
+                <h2>Ops Dashboard v4</h2>
             </div>
             
             <div class="nav-list">
@@ -744,6 +848,10 @@
                 <div class="nav-item" onclick="showSection('manager')" id="managerNav" style="display: none;">
                     <i class="fas fa-user-tie"></i>
                     <span>Manager Panel</span>
+                </div>
+                <div class="nav-item" onclick="showSection('flowchart')">
+                    <i class="fas fa-project-diagram"></i>
+                    <span>Process Flow</span>
                 </div>
                 <div class="nav-item" onclick="showSection('reports')">
                     <i class="fas fa-file-export"></i>
@@ -765,7 +873,7 @@
             <!-- Header -->
             <div class="main-header">
                 <div class="header-left">
-                    <h1 id="pageTitle">Operations Dashboard</h1>
+                    <h1 id="pageTitle">Operations Dashboard v4</h1>
                     <div class="session-info">
                         <span class="session-badge" id="sessionTime">Today: <span id="currentDate">Loading...</span></span>
                         <span class="session-badge" id="actionsCount">Actions: 0</span>
@@ -905,6 +1013,7 @@
                                     <th>Amount</th>
                                     <th>Branch</th>
                                     <th>Status</th>
+                                    <th>Time Since Added</th>
                                     <th>Reason</th>
                                     <th>Updated By</th>
                                     <th>Updated At</th>
@@ -924,7 +1033,7 @@
                 <div class="manager-panel">
                     <h2 style="display: flex; align-items: center; gap: 10px; margin-bottom: 25px; color: var(--dark);">
                         <i class="fas fa-user-tie" style="color: var(--manager);"></i>
-                        Manager Control Panel
+                        Manager Control Panel v4
                     </h2>
                     
                     <div class="manager-section">
@@ -975,10 +1084,88 @@
                 </div>
             </div>
 
+            <!-- Flowchart Section -->
+            <div id="flowchartSection" style="display: none;">
+                <div class="manager-panel">
+                    <h2 style="display: flex; align-items: center; gap: 10px; margin-bottom: 25px; color: var(--dark);">
+                        <i class="fas fa-project-diagram" style="color: var(--primary);"></i>
+                        Daily Process Flow Visualization
+                    </h2>
+                    
+                    <div class="summary-card">
+                        <h4>Process Overview</h4>
+                        <p>This flowchart visualizes the complete daily operations workflow from agent actions through to end-of-day reporting and system reset.</p>
+                    </div>
+                    
+                    <div class="manager-section">
+                        <h3><i class="fas fa-sitemap"></i> Daily Operations Flowchart</h3>
+                        <div class="flowchart-container">
+                            <div class="mermaid" id="flowchart">
+                                graph TD
+                                    A[Agent Actions Throughout Day] --> B[Actions Stored in System]
+                                    B --> C{End of Day}
+                                    C --> D[Manager Reviews Data]
+                                    D --> E[Generates Daily Report]
+                                    E --> F[Archives Today's Data]
+                                    F --> G[Resets for Next Day]
+                                    G --> A
+                                    
+                                    style A fill:#4361ee,color:#fff
+                                    style B fill:#4895ef,color:#fff
+                                    style C fill:#7209b7,color:#fff
+                                    style D fill:#06d6a0,color:#fff
+                                    style E fill:#4cc9f0,color:#fff
+                                    style F fill:#f72585,color:#fff
+                                    style G fill:#ff0054,color:#fff
+                            </div>
+                        </div>
+                        <div style="text-align: center; margin-top: 15px;">
+                            <button class="btn btn-primary" onclick="refreshFlowchart()">
+                                <i class="fas fa-redo"></i> Refresh Flow
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="manager-section">
+                        <h3><i class="fas fa-info-circle"></i> Flow Steps Explanation</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 20px;">
+                            <div style="background: rgba(67, 97, 238, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary);">
+                                <strong>Agent Actions</strong>
+                                <p style="font-size: 0.9rem; margin-top: 5px;">Agents perform order updates throughout the day</p>
+                            </div>
+                            <div style="background: rgba(72, 149, 239, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid var(--info);">
+                                <strong>System Storage</strong>
+                                <p style="font-size: 0.9rem; margin-top: 5px;">All actions are stored with timestamps</p>
+                            </div>
+                            <div style="background: rgba(114, 9, 183, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid var(--secondary);">
+                                <strong>End of Day</strong>
+                                <p style="font-size: 0.9rem; margin-top: 5px;">Trigger point for manager review</p>
+                            </div>
+                            <div style="background: rgba(6, 214, 160, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid var(--manager);">
+                                <strong>Manager Review</strong>
+                                <p style="font-size: 0.9rem; margin-top: 5px;">Manager verifies all daily activities</p>
+                            </div>
+                            <div style="background: rgba(76, 201, 240, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid var(--success);">
+                                <strong>Report Generation</strong>
+                                <p style="font-size: 0.9rem; margin-top: 5px;">Daily performance report created</p>
+                            </div>
+                            <div style="background: rgba(247, 37, 133, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid var(--warning);">
+                                <strong>Data Archiving</strong>
+                                <p style="font-size: 0.9rem; margin-top: 5px;">Today's data moved to archive</p>
+                            </div>
+                            <div style="background: rgba(255, 0, 84, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid var(--danger);">
+                                <strong>System Reset</strong>
+                                <p style="font-size: 0.9rem; margin-top: 5px;">System cleared for next day operations</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Empty State -->
             <div id="emptyState" class="empty-state">
                 <i class="fas fa-cloud-upload-alt"></i>
-                <h3>Welcome to Daily Operations Dashboard</h3>
+                <h3>Welcome to Daily Operations Dashboard v4</h3>
                 <p>Import today's Excel data or use demo mode to get started</p>
                 <div style="margin-top: 25px; display: flex; gap: 15px; justify-content: center;">
                     <button class="btn btn-primary" onclick="document.getElementById('excelInput').click()">
@@ -997,8 +1184,11 @@
         const CONFIG = {
             SHIFT_CODE: "OPERATIONS2024",
             MANAGER_CODE: "MANAGER2024",
-            DELAY_THRESHOLD: 45, // minutes
-            DEMO_DATA_SIZE: 30
+            DELAY_THRESHOLD_WARNING: 40, // minutes for warning
+            DELAY_THRESHOLD_CRITICAL: 45, // minutes for critical alert
+            DEMO_DATA_SIZE: 30,
+            WORKDAY_END_HOUR: 18, // 6 PM
+            WORKDAY_END_MINUTE: 0
         };
 
         // ================= GLOBAL STATE =================
@@ -1013,20 +1203,29 @@
                 date: new Date().toISOString().split('T')[0]
             },
             previousDays: [],
-            isDemo: false
+            isDemo: false,
+            alertSoundEnabled: true,
+            warningSoundEnabled: true,
+            criticalSoundEnabled: true
         };
 
         // ================= INITIALIZATION =================
         document.addEventListener('DOMContentLoaded', function() {
             initSession();
             updateCurrentDate();
+            startCountdownTimer();
+            initMermaid();
+            
             // Auto-save every minute
             setInterval(saveState, 60000);
+            
+            // Check for alerts every 30 seconds
+            setInterval(checkForAlerts, 30000);
         });
 
         function initSession() {
-            const savedState = localStorage.getItem('ops_daily_state');
-            const savedUser = localStorage.getItem('ops_daily_user');
+            const savedState = localStorage.getItem('ops_daily_state_v4');
+            const savedUser = localStorage.getItem('ops_daily_user_v4');
             
             if (savedUser) {
                 const userData = JSON.parse(savedUser);
@@ -1061,13 +1260,110 @@
         function archivePreviousDay(yesterdayData) {
             if (yesterdayData.orders.length > 0 || yesterdayData.actions.length > 0) {
                 // Store in previous days archive
-                const archive = JSON.parse(localStorage.getItem('ops_daily_archive') || '[]');
+                const archive = JSON.parse(localStorage.getItem('ops_daily_archive_v4') || '[]');
                 archive.push(yesterdayData);
                 if (archive.length > 30) archive.shift(); // Keep last 30 days
-                localStorage.setItem('ops_daily_archive', JSON.stringify(archive));
+                localStorage.setItem('ops_daily_archive_v4', JSON.stringify(archive));
                 
                 // Clear for new day
                 state.previousDays = archive;
+            }
+        }
+
+        // ================= SOUND & ALERT SYSTEM =================
+        function playAlert(type = 'warning') {
+            if (!state.alertSoundEnabled) return;
+            
+            const audioElements = {
+                'warning': document.getElementById('warningSound'),
+                'critical': document.getElementById('criticalSound'),
+                'alert': document.getElementById('alertSound')
+            };
+            
+            const audio = audioElements[type] || audioElements['alert'];
+            if (audio) {
+                audio.currentTime = 0;
+                audio.play().catch(e => console.log("Audio play failed:", e));
+            }
+        }
+
+        function checkForAlerts() {
+            const now = new Date().getTime();
+            let hasCriticalAlert = false;
+            let hasWarningAlert = false;
+            
+            state.dailyData.orders.forEach(order => {
+                if (order.AddedAt) {
+                    const minutesPassed = Math.floor((now - order.AddedAt) / 60000);
+                    
+                    if (minutesPassed >= CONFIG.DELAY_THRESHOLD_CRITICAL && order.status === 'Pending') {
+                        hasCriticalAlert = true;
+                    } else if (minutesPassed >= CONFIG.DELAY_THRESHOLD_WARNING && order.status === 'Pending') {
+                        hasWarningAlert = true;
+                    }
+                }
+            });
+            
+            if (hasCriticalAlert) {
+                playAlert('critical');
+                showToast('CRITICAL: Orders pending for >45 minutes!', 'critical');
+            } else if (hasWarningAlert) {
+                playAlert('warning');
+                showToast('Warning: Orders pending for >40 minutes', 'warning');
+            }
+        }
+
+        function showAlert(orderId, minutesPassed) {
+            const message = `Order ${orderId} has been pending for ${minutesPassed} minutes!`;
+            
+            if (minutesPassed >= CONFIG.DELAY_THRESHOLD_CRITICAL) {
+                showToast(`CRITICAL: ${message}`, 'critical');
+                playAlert('critical');
+            } else if (minutesPassed >= CONFIG.DELAY_THRESHOLD_WARNING) {
+                showToast(`Warning: ${message}`, 'warning');
+                playAlert('warning');
+            }
+        }
+
+        // ================= COUNTDOWN TIMER =================
+        function startCountdownTimer() {
+            updateCountdownTimer();
+            setInterval(updateCountdownTimer, 1000);
+        }
+
+        function updateCountdownTimer() {
+            const now = new Date();
+            const endTime = new Date();
+            endTime.setHours(CONFIG.WORKDAY_END_HOUR, CONFIG.WORKDAY_END_MINUTE, 0, 0);
+            
+            // If end time has passed, show next day
+            if (now > endTime) {
+                endTime.setDate(endTime.getDate() + 1);
+            }
+            
+            const diff = endTime - now;
+            
+            // Show countdown if less than 2 hours remaining
+            if (diff <= 2 * 60 * 60 * 1000) {
+                document.getElementById('countdownTimer').style.display = 'block';
+                
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                
+                document.getElementById('countdownDisplay').textContent = 
+                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                // Change color based on time remaining
+                if (diff <= 30 * 60 * 1000) { // 30 minutes or less
+                    document.getElementById('countdownDisplay').style.color = 'var(--danger)';
+                } else if (diff <= 60 * 60 * 1000) { // 1 hour or less
+                    document.getElementById('countdownDisplay').style.color = 'var(--warning)';
+                } else {
+                    document.getElementById('countdownDisplay').style.color = 'var(--primary)';
+                }
+            } else {
+                document.getElementById('countdownTimer').style.display = 'none';
             }
         }
 
@@ -1118,7 +1414,7 @@
             state.sessionStart = new Date();
             
             // Save user data
-            localStorage.setItem('ops_daily_user', JSON.stringify({
+            localStorage.setItem('ops_daily_user_v4', JSON.stringify({
                 name: state.currentUser,
                 role: state.userRole,
                 loginTime: new Date().toISOString()
@@ -1133,7 +1429,7 @@
             state.userRole = "agent";
             state.isDemo = true;
             
-            localStorage.setItem('ops_daily_user', JSON.stringify({
+            localStorage.setItem('ops_daily_user_v4', JSON.stringify({
                 name: state.currentUser,
                 role: state.userRole,
                 loginTime: new Date().toISOString()
@@ -1170,7 +1466,7 @@
                 // Save current state before logout
                 saveState();
                 
-                localStorage.removeItem('ops_daily_user');
+                localStorage.removeItem('ops_daily_user_v4');
                 showToast('Logged out successfully', 'success');
                 setTimeout(() => location.reload(), 1000);
             }
@@ -1302,6 +1598,7 @@
             const orders = state.dailyData.orders;
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const statusFilter = document.getElementById('statusFilter').value;
+            const now = new Date().getTime();
             
             const filteredOrders = orders.filter(order => {
                 const matchesSearch = searchTerm === '' || 
@@ -1317,7 +1614,7 @@
             if (filteredOrders.length === 0) {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td colspan="10" style="text-align: center; padding: 40px; color: var(--text-gray);">
+                    <td colspan="11" style="text-align: center; padding: 40px; color: var(--text-gray);">
                         <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
                         <div>No orders match your filters</div>
                     </td>
@@ -1329,9 +1626,26 @@
             filteredOrders.forEach(order => {
                 const tr = document.createElement('tr');
                 
-                // Format dates
+                // Format dates and calculate time since added
                 const orderDate = new Date(order.date);
                 const updatedDate = order.updatedAt ? new Date(order.updatedAt) : null;
+                const addedDate = order.AddedAt ? new Date(order.AddedAt) : orderDate;
+                const minutesPassed = Math.floor((now - addedDate.getTime()) / 60000);
+                
+                // Determine time indicator class
+                let timeClass = 'time-normal';
+                if (minutesPassed >= CONFIG.DELAY_THRESHOLD_CRITICAL) {
+                    timeClass = 'time-critical';
+                    if (order.status === 'Pending') {
+                        tr.classList.add('critical-alert');
+                        showAlert(order.id, minutesPassed);
+                    }
+                } else if (minutesPassed >= CONFIG.DELAY_THRESHOLD_WARNING) {
+                    timeClass = 'time-warning';
+                    if (order.status === 'Pending') {
+                        tr.classList.add('warning-alert');
+                    }
+                }
                 
                 tr.innerHTML = `
                     <td><strong>${order.id}</strong></td>
@@ -1349,6 +1663,11 @@
                             <option value="Cancelled" ${order.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
                         </select>
                     </td>
+                    <td>
+                        <span class="time-indicator ${timeClass}">
+                            ${minutesPassed}m ago
+                        </span>
+                    </td>
                     <td style="max-width: 200px; font-size: 0.85rem;">${order.reason || '-'}</td>
                     <td><span class="status-badge">${order.updatedBy || '-'}</span></td>
                     <td style="font-size: 0.85rem; color: var(--text-gray);">
@@ -1361,6 +1680,9 @@
                             </button>
                             <button class="btn-icon btn-danger" onclick="cancelOrder('${order.id}')" title="Cancel Order">
                                 <i class="fas fa-ban"></i>
+                            </button>
+                            <button class="btn-icon btn-warning" onclick="delayOrder('${order.id}')" title="Mark as Delayed">
+                                <i class="fas fa-clock"></i>
                             </button>
                         </div>
                     </td>
@@ -1422,19 +1744,21 @@
             // Hide all sections
             document.getElementById('dashboardSection').style.display = 'none';
             document.getElementById('managerSection').style.display = 'none';
+            document.getElementById('flowchartSection').style.display = 'none';
             
             // Show selected section
             document.getElementById(sectionId + 'Section').style.display = 'block';
             
             // Update page title
             const titles = {
-                'dashboard': 'Operations Dashboard',
-                'manager': 'Manager Control Panel',
+                'dashboard': 'Operations Dashboard v4',
+                'manager': 'Manager Control Panel v4',
                 'orders': 'Order Management',
                 'actions': 'Daily Actions Log',
+                'flowchart': 'Process Flow Visualization',
                 'reports': 'Daily Reports'
             };
-            document.getElementById('pageTitle').textContent = titles[sectionId] || 'Operations Dashboard';
+            document.getElementById('pageTitle').textContent = titles[sectionId] || 'Operations Dashboard v4';
             
             // Update active nav item
             document.querySelectorAll('.nav-item').forEach(item => {
@@ -1445,6 +1769,8 @@
             // Refresh section data
             if (sectionId === 'manager') {
                 updateManagerPanel();
+            } else if (sectionId === 'flowchart') {
+                refreshFlowchart();
             }
         }
 
@@ -1459,10 +1785,26 @@
             const successRate = totalOrders > 0 ? Math.round((delivered / totalOrders) * 100) : 0;
             const cancelRate = totalOrders > 0 ? Math.round((cancelled / totalOrders) * 100) : 0;
             
+            // Calculate pending orders by age
+            const now = new Date().getTime();
+            const pendingOrders = orders.filter(o => o.status === 'Pending');
+            const criticalPending = pendingOrders.filter(o => {
+                const addedTime = o.AddedAt ? new Date(o.AddedAt).getTime() : new Date(o.date).getTime();
+                return Math.floor((now - addedTime) / 60000) >= CONFIG.DELAY_THRESHOLD_CRITICAL;
+            }).length;
+            
+            const warningPending = pendingOrders.filter(o => {
+                const addedTime = o.AddedAt ? new Date(o.AddedAt).getTime() : new Date(o.date).getTime();
+                const minutes = Math.floor((now - addedTime) / 60000);
+                return minutes >= CONFIG.DELAY_THRESHOLD_WARNING && minutes < CONFIG.DELAY_THRESHOLD_CRITICAL;
+            }).length;
+            
             document.getElementById('dailySummary').innerHTML = `
                 <p>• Total Orders Processed: <strong>${totalOrders}</strong></p>
                 <p>• Successful Deliveries: <strong>${delivered}</strong> (<strong>${successRate}%</strong> success rate)</p>
                 <p>• Cancellation Rate: <strong>${cancelRate}%</strong></p>
+                <p>• Pending Orders: <strong>${pendingOrders.length}</strong> 
+                   (⚠️ <strong>${warningPending}</strong> warnings, 🚨 <strong>${criticalPending}</strong> critical)</p>
                 <p>• Active Agents Today: <strong>${state.dailyData.agents.length}</strong></p>
                 <p>• Total Actions Recorded: <strong>${actions.length}</strong></p>
             `;
@@ -1537,6 +1879,29 @@
             });
         }
 
+        // ================= FLOWCHART FUNCTIONS =================
+        function initMermaid() {
+            mermaid.initialize({
+                startOnLoad: true,
+                theme: 'neutral',
+                flowchart: {
+                    useMaxWidth: true,
+                    htmlLabels: true
+                }
+            });
+        }
+
+        function refreshFlowchart() {
+            // Re-render the flowchart
+            const element = document.getElementById('flowchart');
+            if (element) {
+                const graphDefinition = element.textContent;
+                mermaid.render('flowchart-svg', graphDefinition, function(svgCode) {
+                    element.innerHTML = svgCode;
+                });
+            }
+        }
+
         // ================= FILE HANDLING =================
         function downloadTemplate() {
             const templateData = [
@@ -1588,7 +1953,8 @@
                             status: getVal(['Status', 'status', 'Order Status'], 'Pending'),
                             reason: getVal(['Reason', 'Notes', 'Comment'], ''),
                             updatedBy: getVal(['Updated By', 'Agent', 'Modified By'], ''),
-                            updatedAt: getVal(['Updated At', 'Timestamp', 'Last Updated'], '')
+                            updatedAt: getVal(['Updated At', 'Timestamp', 'Last Updated'], ''),
+                            AddedAt: new Date().getTime() // Add timestamp for tracking
                         };
                     });
                     
@@ -1642,7 +2008,8 @@
                     reason: status === 'Delivered' ? 'Delivered successfully' : 
                            status === 'Cancelled' ? 'Customer cancelled' : '',
                     updatedBy: status !== 'Pending' ? 'Demo Agent' : '',
-                    updatedAt: status !== 'Pending' ? orderDate.toISOString() : ''
+                    updatedAt: status !== 'Pending' ? orderDate.toISOString() : '',
+                    AddedAt: orderDate.getTime()
                 });
             }
             
@@ -1718,7 +2085,7 @@
                 
                 // Summary sheet
                 const summaryRows = [
-                    ["DAILY OPERATIONS REPORT", "", "", "", ""],
+                    ["DAILY OPERATIONS REPORT v4", "", "", "", ""],
                     ["Date", reportData.summary.date, "", "", ""],
                     ["Generated By", reportData.summary.generatedBy, "", "", ""],
                     ["Generation Time", new Date(reportData.summary.generationTime).toLocaleString(), "", "", ""],
@@ -1752,7 +2119,7 @@
                 
                 // Generate filename
                 const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-                const filename = `Daily_Report_${state.dailyData.date}_${timestamp}.xlsx`;
+                const filename = `Daily_Report_v4_${state.dailyData.date}_${timestamp}.xlsx`;
                 
                 XLSX.writeFile(wb, filename);
                 
@@ -1827,7 +2194,7 @@
             
             const dataStr = JSON.stringify(allData, null, 2);
             const blob = new Blob([dataStr], { type: 'application/json' });
-            saveAs(blob, `ops_backup_${new Date().toISOString().split('T')[0]}.json`);
+            saveAs(blob, `ops_backup_v4_${new Date().toISOString().split('T')[0]}.json`);
             
             showToast('System data backed up successfully', 'success');
         }
@@ -1840,7 +2207,7 @@
             
             const dataStr = JSON.stringify(allData, null, 2);
             const blob = new Blob([dataStr], { type: 'application/json' });
-            saveAs(blob, `complete_log_${new Date().toISOString().split('T')[0]}.json`);
+            saveAs(blob, `complete_log_v4_${new Date().toISOString().split('T')[0]}.json`);
             
             showToast('Complete log exported', 'success');
         }
@@ -1880,7 +2247,7 @@
 
         function saveState() {
             const stateToSave = state.dailyData;
-            localStorage.setItem('ops_daily_state', JSON.stringify(stateToSave));
+            localStorage.setItem('ops_daily_state_v4', JSON.stringify(stateToSave));
         }
 
         function showToast(message, type = 'info') {
@@ -1893,7 +2260,8 @@
                 warning: 'exclamation-triangle',
                 danger: 'times-circle',
                 info: 'info-circle',
-                manager: 'user-tie'
+                manager: 'user-tie',
+                critical: 'exclamation-circle'
             };
             
             toast.innerHTML = `
