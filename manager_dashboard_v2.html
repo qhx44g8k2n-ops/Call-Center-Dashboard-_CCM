@@ -3,30 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Manager Dashboard v2 - Colored & Filter</title>
+<title>Manager Dashboard v4 - Alerts, Countdown & Workflow</title>
 <style>
-body { font-family: Arial, sans-serif; margin: 0; padding: 0; background:#f4f4f4; }
-header { background: #2c3e50; color: #fff; padding: 10px 20px; text-align:center; }
-.container { padding: 20px; max-width:1200px; margin:auto; }
+body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f4f4f4; }
+header { background:#2c3e50; color:#fff; padding:10px 20px; text-align:center; }
+.container { padding:20px; max-width:1200px; margin:auto; }
 button { padding:5px 10px; margin:2px; cursor:pointer; }
 table { width:100%; border-collapse:collapse; margin-top:10px; }
 th, td { border:1px solid #ccc; padding:5px; text-align:center; }
 th { background:#eee; }
 input[type=text], input[type=file], select { padding:5px; margin:5px 0; width:200px; }
 .hidden { display:none; }
-.success { color:green; font-weight:bold; }
-.warning { color:orange; font-weight:bold; }
-.danger { color:red; font-weight:bold; }
+.success { background:#d4edda; color:#155724; }
+.warning { background:#fff3cd; color:#856404; }
+.danger { background:#f8d7da; color:#721c24; }
+.critical { background:#ffcccc; color:#721c24; font-weight:bold; }
+#workflow { background:#fff; padding:10px; border:1px solid #ccc; margin-bottom:20px; }
 </style>
+<!-- Mermaid.js for flowchart -->
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+mermaid.initialize({ startOnLoad:true });
+</script>
 </head>
 <body>
 
 <header>
-<h1>Manager Dashboard v2</h1>
+<h1>Ops Dashboard v4</h1>
 </header>
 
 <div class="container">
-<!-- LOGIN SCREEN -->
+
+<!-- LOGIN -->
 <div id="loginScreen">
   <h2>Login</h2>
   <input type="text" id="loginCode" placeholder="Enter Access Code"><br>
@@ -41,7 +49,14 @@ input[type=text], input[type=file], select { padding:5px; margin:5px 0; width:20
   <p>Daily Orders:</p>
   <table id="orderTable">
     <thead>
-      <tr><th>Order ID</th><th>Customer</th><th>Status</th><th>Marked By</th><th>Action</th></tr>
+      <tr>
+        <th>Order ID</th>
+        <th>Customer</th>
+        <th>Status</th>
+        <th>Marked By</th>
+        <th>Time Since Added</th>
+        <th>Action</th>
+      </tr>
     </thead>
     <tbody></tbody>
   </table>
@@ -58,6 +73,22 @@ input[type=text], input[type=file], select { padding:5px; margin:5px 0; width:20
 <!-- MANAGER DASHBOARD -->
 <div id="managerDashboard" class="hidden">
   <h2>Manager Panel</h2>
+
+  <!-- WORKFLOW GRAPH -->
+  <div id="workflow">
+    <h3>Daily Workflow</h3>
+    <div class="mermaid">
+graph TD
+    A[Agent Actions Throughout Day] --> B[Actions Stored in System]
+    B --> C{End of Day}
+    C --> D[Manager Reviews Data]
+    D --> E[Generates Daily Report]
+    E --> F[Archives Today's Data]
+    F --> G[Resets for Next Day]
+    G --> A
+    </div>
+  </div>
+
   <p>Total Orders Today: <span id="totalOrders">0</span></p>
   <p>Delivered: <span id="deliveredCount">0</span></p>
   <p>Cancelled: <span id="cancelledCount">0</span></p>
@@ -73,197 +104,208 @@ input[type=text], input[type=file], select { padding:5px; margin:5px 0; width:20
   <h3>Full Action Log</h3>
   <table id="fullLog">
     <thead>
-      <tr><th>Order ID</th><th>Status</th><th>Marked By</th><th>Timestamp</th></tr>
+      <tr><th>Order ID</th><th>Status</th><th>Marked By</th><th>Timestamp</th><th>Time Since Added</th></tr>
     </thead>
     <tbody></tbody>
   </table>
   <button onclick="logout()">Logout</button>
 </div>
 
+<audio id="alertSound">
+  <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" type="audio/ogg">
+</audio>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 const AGENT_CODE = "OPERATIONS2024";
 const MANAGER_CODE = "MANAGER2024";
 let currentUser = null;
-
 let orders = JSON.parse(localStorage.getItem("orders")) || [];
 let actionLog = JSON.parse(localStorage.getItem("actionLog")) || [];
 
 function login(){
-    const code = document.getElementById("loginCode").value.trim();
-    if(code === AGENT_CODE){
-        currentUser = {role:'agent', name:'Demo Agent'};
-        showAgentDashboard();
-    } else if(code === MANAGER_CODE){
-        currentUser = {role:'manager', name:'Manager'};
-        showManagerDashboard();
-    } else {
-        document.getElementById("loginMsg").innerText = "Invalid code!";
-    }
+  const code = document.getElementById("loginCode").value.trim();
+  if(code===AGENT_CODE){ currentUser={role:'agent',name:'Demo Agent'}; showAgentDashboard(); }
+  else if(code===MANAGER_CODE){ currentUser={role:'manager',name:'Manager'}; showManagerDashboard(); }
+  else{ document.getElementById("loginMsg").innerText="Invalid code!"; }
 }
 
 function logout(){
-    currentUser = null;
-    document.getElementById("loginScreen").classList.remove("hidden");
-    document.getElementById("agentDashboard").classList.add("hidden");
-    document.getElementById("managerDashboard").classList.add("hidden");
+  currentUser=null;
+  document.getElementById("loginScreen").classList.remove("hidden");
+  document.getElementById("agentDashboard").classList.add("hidden");
+  document.getElementById("managerDashboard").classList.add("hidden");
 }
 
+// ----------------- IMPORT ORDERS -----------------
 function importOrders(){
-    const file = document.getElementById("fileInput").files[0];
-    if(!file) return alert("Please select a file");
-    const reader = new FileReader();
-    reader.onload = function(e){
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, {type:"array"});
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(sheet);
-        json.forEach(order=>{
-            if(!orders.find(o=>o.OrderID===order.OrderID)){
-                orders.push({
-                    OrderID: order.OrderID,
-                    Customer: order.Customer || "",
-                    Status: "",
-                    MarkedBy: "",
-                    Timestamp: ""
-                });
-            }
+  const file = document.getElementById("fileInput").files[0];
+  if(!file) return alert("Please select a file");
+  const reader = new FileReader();
+  reader.onload=function(e){
+    const data=new Uint8Array(e.target.result);
+    const workbook=XLSX.read(data,{type:"array"});
+    const sheetName=workbook.SheetNames[0];
+    const sheet=workbook.Sheets[sheetName];
+    const json=XLSX.utils.sheet_to_json(sheet);
+    json.forEach(order=>{
+      if(!orders.find(o=>o.OrderID===order.OrderID)){
+        orders.push({
+          OrderID: order.OrderID,
+          Customer: order.Customer||"",
+          Status:"",
+          MarkedBy:"",
+          Timestamp:"",
+          AddedAt: new Date().getTime()
         });
-        localStorage.setItem("orders", JSON.stringify(orders));
-        refreshOrderTable();
-        alert(json.length + " orders imported!");
-    };
-    reader.readAsArrayBuffer(file);
+      }
+    });
+    localStorage.setItem("orders",JSON.stringify(orders));
+    refreshOrderTable();
+    alert(json.length+" orders imported!");
+  };
+  reader.readAsArrayBuffer(file);
 }
 
+// ----------------- REFRESH TABLES -----------------
 function refreshOrderTable(){
-    const tbody = document.querySelector("#orderTable tbody");
-    tbody.innerHTML = "";
-    orders.forEach(order=>{
-        if(currentUser.role==='agent' && order.Status!=="") return;
-        const tr = document.createElement("tr");
-        let statusClass = "";
-        if(order.Status==="Delivered") statusClass="success";
-        else if(order.Status==="Cancelled") statusClass="danger";
-        else if(order.Status==="Delayed") statusClass="warning";
-        tr.innerHTML = `<td>${order.OrderID}</td>
-                        <td>${order.Customer}</td>
-                        <td class="${statusClass}">${order.Status}</td>
-                        <td>${order.MarkedBy}</td>
-                        <td>
-                            ${order.Status==="" ? 
-                                `<button onclick="markOrder('${order.OrderID}','Delivered')">Delivered</button>
-                                 <button onclick="markOrder('${order.OrderID}','Cancelled')">Cancelled</button>
-                                 <button onclick="markOrder('${order.OrderID}','Delayed')">Delayed</button>` : ""}
-                        </td>`;
-        tbody.appendChild(tr);
-    });
-    if(currentUser.role==='agent') refreshAgentHistory();
-    if(currentUser.role==='manager') refreshFullLog();
-    updateCounts();
+  const tbody=document.querySelector("#orderTable tbody");
+  tbody.innerHTML="";
+  const now = new Date().getTime();
+  orders.forEach(order=>{
+    if(currentUser.role==='agent' && order.Status!=="") return;
+    const tr=document.createElement("tr");
+    let statusClass="";
+    if(order.Status==="Delivered") statusClass="success";
+    else if(order.Status==="Cancelled") statusClass="danger";
+    else if(order.Status==="Delayed") statusClass="warning";
+
+    const minutesPassed = Math.floor((now - order.AddedAt)/60000);
+    let timeDisplay = minutesPassed+" min";
+    if(minutesPassed>=45) { tr.className="critical"; playAlert(); }
+    else if(minutesPassed>=40) tr.className="warning";
+
+    tr.innerHTML=`<td>${order.OrderID}</td>
+                  <td>${order.Customer}</td>
+                  <td class="${statusClass}">${order.Status}</td>
+                  <td>${order.MarkedBy}</td>
+                  <td>${timeDisplay}</td>
+                  <td>${order.Status===""? 
+                  `<button onclick="markOrder('${order.OrderID}','Delivered')">Delivered</button>
+                   <button onclick="markOrder('${order.OrderID}','Cancelled')">Cancelled</button>
+                   <button onclick="markOrder('${order.OrderID}','Delayed')">Delayed</button>`:""}</td>`;
+    tbody.appendChild(tr);
+  });
+  if(currentUser.role==='agent') refreshAgentHistory();
+  if(currentUser.role==='manager') refreshFullLog();
+  updateCounts();
 }
 
 function markOrder(orderID,status){
-    const order = orders.find(o=>o.OrderID===orderID);
-    if(!order) return;
-    order.Status = status;
-    order.MarkedBy = currentUser.name;
-    order.Timestamp = new Date().toLocaleString();
-    actionLog.push({...order});
-    localStorage.setItem("orders", JSON.stringify(orders));
-    localStorage.setItem("actionLog", JSON.stringify(actionLog));
-    refreshOrderTable();
+  const order = orders.find(o=>o.OrderID===orderID);
+  if(!order) return;
+  order.Status=status;
+  order.MarkedBy=currentUser.name;
+  order.Timestamp=new Date().toLocaleString();
+  actionLog.push({...order});
+  localStorage.setItem("orders",JSON.stringify(orders));
+  localStorage.setItem("actionLog",JSON.stringify(actionLog));
+  refreshOrderTable();
 }
 
+// ----------------- AGENT HISTORY -----------------
 function refreshAgentHistory(){
-    const tbody = document.querySelector("#agentHistory tbody");
-    tbody.innerHTML = "";
-    actionLog.filter(a=>a.MarkedBy===currentUser.name).forEach(a=>{
-        const tr = document.createElement("tr");
-        let statusClass = "";
-        if(a.Status==="Delivered") statusClass="success";
-        else if(a.Status==="Cancelled") statusClass="danger";
-        else if(a.Status==="Delayed") statusClass="warning";
-        tr.innerHTML = `<td>${a.OrderID}</td><td class="${statusClass}">${a.Status}</td><td>${a.Timestamp}</td>`;
-        tbody.appendChild(tr);
-    });
+  const tbody=document.querySelector("#agentHistory tbody");
+  tbody.innerHTML="";
+  const now = new Date().getTime();
+  actionLog.filter(a=>a.MarkedBy===currentUser.name).forEach(a=>{
+    let statusClass="";
+    if(a.Status==="Delivered") statusClass="success";
+    else if(a.Status==="Cancelled") statusClass="danger";
+    else if(a.Status==="Delayed") statusClass="warning";
+    const minutesPassed=Math.floor((now-new Date(a.AddedAt || now).getTime())/60000);
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${a.OrderID}</td><td class="${statusClass}">${a.Status}</td><td>${a.Timestamp} (${minutesPassed} min)</td>`;
+    tbody.appendChild(tr);
+  });
 }
 
+// ----------------- MANAGER LOG -----------------
 function refreshFullLog(){
-    const tbody = document.querySelector("#fullLog tbody");
-    tbody.innerHTML = "";
-    const filter = document.getElementById("agentFilter").value;
-    const agents = [...new Set(actionLog.map(a=>a.MarkedBy))];
-    const select = document.getElementById("agentFilter");
-    select.innerHTML = '<option value="all">All Agents</option>';
-    agents.forEach(agent=>{
-        select.innerHTML += `<option value="${agent}">${agent}</option>`;
-    });
-    let logToShow = actionLog;
-    if(filter!=="all") logToShow = actionLog.filter(a=>a.MarkedBy===filter);
-    logToShow.forEach(a=>{
-        const tr = document.createElement("tr");
-        let statusClass = "";
-        if(a.Status==="Delivered") statusClass="success";
-        else if(a.Status==="Cancelled") statusClass="danger";
-        else if(a.Status==="Delayed") statusClass="warning";
-        tr.innerHTML = `<td>${a.OrderID}</td><td class="${statusClass}">${a.Status}</td><td>${a.MarkedBy}</td><td>${a.Timestamp}</td>`;
-        tbody.appendChild(tr);
-    });
+  const tbody=document.querySelector("#fullLog tbody");
+  tbody.innerHTML="";
+  const filter=document.getElementById("agentFilter").value;
+  const agents=[...new Set(actionLog.map(a=>a.MarkedBy))];
+  const select=document.getElementById("agentFilter");
+  select.innerHTML='<option value="all">All Agents</option>';
+  agents.forEach(agent=>{select.innerHTML+=`<option value="${agent}">${agent}</option>`;});
+  let logToShow=actionLog;
+  if(filter!=="all") logToShow=actionLog.filter(a=>a.MarkedBy===filter);
+  const now = new Date().getTime();
+  logToShow.forEach(a=>{
+    let statusClass="";
+    if(a.Status==="Delivered") statusClass="success";
+    else if(a.Status==="Cancelled") statusClass="danger";
+    else if(a.Status==="Delayed") statusClass="warning";
+    const minutesPassed=Math.floor((now-new Date(a.AddedAt || now).getTime())/60000);
+    let timeDisplay=minutesPassed+" min";
+    const tr=document.createElement("tr");
+    if(minutesPassed>=45) { tr.className="critical"; playAlert(); }
+    else if(minutesPassed>=40) tr.className="warning";
+    tr.innerHTML=`<td>${a.OrderID}</td><td class="${statusClass}">${a.Status}</td><td>${a.MarkedBy}</td><td>${a.Timestamp}</td><td>${timeDisplay}</td>`;
+    tbody.appendChild(tr);
+  });
 }
 
+// ----------------- UPDATE COUNTS -----------------
 function updateCounts(){
-    document.getElementById("totalOrders").innerText = orders.length;
-    document.getElementById("deliveredCount").innerText = orders.filter(o=>o.Status==="Delivered").length;
-    document.getElementById("cancelledCount").innerText = orders.filter(o=>o.Status==="Cancelled").length;
-    document.getElementById("delayedCount").innerText = orders.filter(o=>o.Status==="Delayed").length;
+  document.getElementById("totalOrders").innerText=orders.length;
+  document.getElementById("deliveredCount").innerText=orders.filter(o=>o.Status==="Delivered").length;
+  document.getElementById("cancelledCount").innerText=orders.filter(o=>o.Status==="Cancelled").length;
+  document.getElementById("delayedCount").innerText=orders.filter(o=>o.Status==="Delayed").length;
 }
 
+// ----------------- EXPORT -----------------
 function exportJSON(){
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({orders, actionLog}));
-    const dlAnchor = document.createElement('a');
-    dlAnchor.setAttribute("href", dataStr);
-    dlAnchor.setAttribute("download","backup.json");
-    dlAnchor.click();
+  const dataStr="data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify({orders,actionLog}));
+  const dlAnchor=document.createElement('a');
+  dlAnchor.setAttribute("href",dataStr);
+  dlAnchor.setAttribute("download","backup.json");
+  dlAnchor.click();
 }
 
 function exportExcel(){
-    const ws = XLSX.utils.json_to_sheet(orders);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Orders");
-    XLSX.writeFile(wb, "DailyReport.xlsx");
+  const ws=XLSX.utils.json_to_sheet(orders);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"Orders");
+  XLSX.writeFile(wb,"DailyReport.xlsx");
 }
 
+// ----------------- ARCHIVE & RESET -----------------
 function archiveDay(){
-    const archive = JSON.parse(localStorage.getItem("archive")) || [];
-    archive.push({date:new Date().toLocaleDateString(), orders:orders, log:actionLog});
-    if(archive.length>30) archive.shift();
-    localStorage.setItem("archive", JSON.stringify(archive));
-    orders = [];
-    actionLog = [];
-    localStorage.removeItem("orders");
-    localStorage.removeItem("actionLog");
-    refreshOrderTable();
-    alert("Day archived and system reset!");
+  const archive=JSON.parse(localStorage.getItem("archive"))||[];
+  archive.push({date:new Date().toLocaleDateString(),orders:orders,log:actionLog});
+  if(archive.length>30) archive.shift();
+  localStorage.setItem("archive",JSON.stringify(archive));
+  orders=[]; actionLog=[];
+  localStorage.removeItem("orders"); localStorage.removeItem("actionLog");
+  refreshOrderTable();
+  alert("Day archived and system reset!");
 }
 
-function showAgentDashboard(){
-    document.getElementById("loginScreen").classList.add("hidden");
-    document.getElementById("agentDashboard").classList.remove("hidden");
-    refreshOrderTable();
-}
-function showManagerDashboard(){
-    document.getElementById("loginScreen").classList.add("hidden");
-    document.getElementById("managerDashboard").classList.remove("hidden");
-    refreshOrderTable();
+// ----------------- DASHBOARD -----------------
+function showAgentDashboard(){ document.getElementById("loginScreen").classList.add("hidden"); document.getElementById("agentDashboard").classList.remove("hidden"); refreshOrderTable();}
+function showManagerDashboard(){ document.getElementById("loginScreen").classList.add("hidden"); document.getElementById("managerDashboard").classList.remove("hidden"); refreshOrderTable();}
+
+// ----------------- ALERT SOUND -----------------
+function playAlert(){
+  const audio=document.getElementById("alertSound");
+  audio.play();
 }
 
-setInterval(()=>{
-    localStorage.setItem("orders", JSON.stringify(orders));
-    localStorage.setItem("actionLog", JSON.stringify(actionLog));
-    console.log("Auto-backup saved");
-}, 60000);
+// ----------------- AUTO-BACKUP -----------------
+setInterval(()=>{ localStorage.setItem("orders",JSON.stringify(orders)); localStorage.setItem("actionLog",JSON.stringify(actionLog)); refreshOrderTable(); },60000);
+
 </script>
 </div>
 </body>
