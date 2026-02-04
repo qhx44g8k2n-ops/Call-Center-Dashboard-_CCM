@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orders Management System - Agent-Manager Separation</title>
+    <title>Orders Management System - Enhanced with Fixes</title>
     
     <!-- Libraries -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 
     <style>
         :root {
@@ -120,6 +121,29 @@
             color: var(--text-gray);
             margin-top: 5px;
             text-align: center;
+        }
+
+        .login-message {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+
+        .login-message.error {
+            background: rgba(255, 0, 84, 0.1);
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            display: block;
+        }
+
+        .login-message.success {
+            background: rgba(76, 201, 240, 0.1);
+            color: var(--success);
+            border: 1px solid var(--success);
+            display: block;
         }
 
         /* Dashboard */
@@ -414,6 +438,21 @@
             color: var(--manager);
         }
 
+        /* Flowchart Container */
+        .flowchart-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: auto;
+        }
+
+        .mermaid {
+            text-align: center;
+            margin: 0 auto;
+        }
+
         /* Toast Notifications */
         .toast-container {
             position: fixed;
@@ -531,9 +570,25 @@
                 width: 100%;
             }
         }
+
+        /* Alert animation */
+        .alert-pulse {
+            animation: alertPulse 2s infinite;
+        }
+
+        @keyframes alertPulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 0, 84, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 0, 84, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 0, 84, 0); }
+        }
     </style>
 </head>
 <body>
+    <!-- Audio Alert -->
+    <audio id="alertSound" preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3" type="audio/mpeg">
+    </audio>
+
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
 
@@ -544,8 +599,8 @@
 
     <!-- Header -->
     <header>
-        <h1>Orders Management System</h1>
-        <div class="version">Agent-Manager Separation Version</div>
+        <h1>Orders Management System v2.0</h1>
+        <div class="version">Enhanced with All Fixes Applied</div>
     </header>
 
     <!-- Main Container -->
@@ -555,12 +610,14 @@
             <div class="login-icon">
                 <i class="fas fa-user-lock"></i>
             </div>
-            <h2>Login</h2>
+            <h2>Login to System</h2>
+            
+            <div id="loginMessage" class="login-message"></div>
             
             <div class="form-group">
-                <label for="userRole">Role:</label>
+                <label for="userRole">Select Role:</label>
                 <select id="userRole" onchange="toggleRoleFields()">
-                    <option value="">Select Role</option>
+                    <option value="">Select your role</option>
                     <option value="agent">Agent / Operator</option>
                     <option value="manager">Manager</option>
                 </select>
@@ -573,7 +630,7 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="shiftCodeInput">Shift Code:</label>
+                    <label for="shiftCodeInput">Shift Access Code:</label>
                     <input type="password" id="shiftCodeInput" placeholder="Enter shift access code">
                     <div class="code-note">Default Code: OPERATIONS2024</div>
                 </div>
@@ -594,6 +651,18 @@
                 <button class="btn btn-outline" style="flex: 1;" onclick="demoLogin()">
                     <i class="fas fa-magic"></i> Demo Mode
                 </button>
+            </div>
+
+            <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 10px;">
+                <h4 style="margin-bottom: 10px; color: var(--dark);">System Features:</h4>
+                <ul style="text-align: left; padding-left: 20px; color: var(--text-gray); font-size: 0.9rem;">
+                    <li>Agents see only unmarked orders</li>
+                    <li>Managers see complete order history</li>
+                    <li>All data saved in localStorage</li>
+                    <li>Excel import/export support</li>
+                    <li>Real-time alerts with debounced audio</li>
+                    <li>Process flowchart visualization</li>
+                </ul>
             </div>
         </div>
 
@@ -621,6 +690,10 @@
                         <div class="stat-value" id="agentMyActions">0</div>
                         <div class="stat-label">My Actions</div>
                     </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="agentActiveTime">00:00</div>
+                        <div class="stat-label">Active Time</div>
+                    </div>
                 </div>
                 
                 <button class="btn btn-danger" onclick="logoutUser()">
@@ -636,19 +709,23 @@
                 </button>
                 
                 <button class="btn btn-primary" onclick="document.getElementById('excelInput').click()">
-                    <i class="fas fa-file-upload"></i> Upload Excel File
+                    <i class="fas fa-file-upload"></i> Upload Excel
                 </button>
                 
                 <button class="btn btn-success" onclick="refreshAgentDashboard()">
                     <i class="fas fa-redo"></i> Refresh
                 </button>
+                
+                <button class="btn btn-manager" onclick="showFlowchart()" style="display: none;">
+                    <i class="fas fa-project-diagram"></i> View Process
+                </button>
             </div>
 
             <div class="table-container">
                 <div class="table-header">
-                    <h3><i class="fas fa-list"></i> Pending Orders</h3>
+                    <h3><i class="fas fa-list"></i> My Pending Orders</h3>
                     <div class="filters">
-                        <input type="text" id="agentSearchInput" placeholder="Search..." onkeyup="filterAgentOrders()">
+                        <input type="text" id="agentSearchInput" placeholder="Search orders..." onkeyup="filterAgentOrders()">
                         <select id="agentBranchFilter" onchange="filterAgentOrders()">
                             <option value="all">All Branches</option>
                         </select>
@@ -669,7 +746,7 @@
                             </tr>
                         </thead>
                         <tbody id="agentTableBody">
-                            <!-- Only unmarked orders will appear here -->
+                            <!-- Only unmarked orders appear here -->
                         </tbody>
                     </table>
                 </div>
@@ -677,7 +754,10 @@
 
             <div class="table-container">
                 <div class="table-header">
-                    <h3><i class="fas fa-history"></i> My Previous Actions</h3>
+                    <h3><i class="fas fa-history"></i> My Action History</h3>
+                    <button class="btn btn-outline" onclick="clearMyHistory()" style="font-size: 0.85rem;">
+                        <i class="fas fa-trash"></i> Clear My History
+                    </button>
                 </div>
                 
                 <div style="overflow-x: auto;">
@@ -685,14 +765,15 @@
                         <thead>
                             <tr>
                                 <th>Order ID</th>
-                                <th>New Status</th>
+                                <th>Action</th>
+                                <th>Status</th>
                                 <th>Reason</th>
                                 <th>Date</th>
                                 <th>Time</th>
                             </tr>
                         </thead>
                         <tbody id="agentHistoryBody">
-                            <!-- Agent's action history will appear here -->
+                            <!-- Agent's action history appears here -->
                         </tbody>
                     </table>
                 </div>
@@ -738,11 +819,11 @@
                 <input type="file" id="managerExcelInput" accept=".xlsx, .xls" style="display: none;" onchange="handleManagerFileUpload(event)">
                 
                 <button class="btn btn-outline" onclick="downloadTemplate()">
-                    <i class="fas fa-file-download"></i> Download Template
+                    <i class="fas fa-file-download"></i> Template
                 </button>
                 
                 <button class="btn btn-primary" onclick="document.getElementById('managerExcelInput').click()">
-                    <i class="fas fa-file-upload"></i> Upload Excel File
+                    <i class="fas fa-file-upload"></i> Upload Excel
                 </button>
                 
                 <button class="btn btn-success" onclick="exportDailyReport()">
@@ -752,17 +833,71 @@
                 <button class="btn btn-manager" onclick="archiveDay()">
                     <i class="fas fa-archive"></i> Archive Day
                 </button>
+                
+                <button class="btn btn-warning" onclick="showFlowchart()">
+                    <i class="fas fa-project-diagram"></i> Process Flow
+                </button>
+            </div>
+
+            <!-- Flowchart Section (Initially Hidden) -->
+            <div id="flowchartSection" style="display: none;">
+                <div class="manager-panel">
+                    <h2 style="display: flex; align-items: center; gap: 10px; margin-bottom: 25px; color: var(--dark);">
+                        <i class="fas fa-project-diagram" style="color: var(--primary);"></i>
+                        Order Processing Flowchart
+                    </h2>
+                    
+                    <div class="flowchart-container">
+                        <div class="mermaid" id="flowchart">
+                            graph TD
+                                A[Agent Logs In] --> B[Views Pending Orders]
+                                B --> C{Process Order}
+                                C --> D[Mark as Delivered]
+                                C --> E[Mark as Cancelled]
+                                C --> F[Mark as Delayed]
+                                D --> G[Order Hidden from Agent]
+                                E --> G
+                                F --> G
+                                G --> H[Manager Reviews All Data]
+                                H --> I[Generate Reports]
+                                I --> J[Archive Data]
+                                J --> K[Reset for Next Day]
+                                K --> A
+                                
+                                style A fill:#4361ee,color:#fff
+                                style B fill:#4895ef,color:#fff
+                                style C fill:#7209b7,color:#fff
+                                style D fill:#06d6a0,color:#fff
+                                style E fill:#f72585,color:#fff
+                                style F fill:#ff0054,color:#fff
+                                style G fill:#4cc9f0,color:#fff
+                                style H fill:#06d6a0,color:#fff
+                                style I fill:#4895ef,color:#fff
+                                style J fill:#f72585,color:#fff
+                                style K fill:#ff0054,color:#fff
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 15px;">
+                        <button class="btn btn-primary" onclick="refreshFlowchart()">
+                            <i class="fas fa-redo"></i> Refresh Flowchart
+                        </button>
+                        <button class="btn btn-outline" onclick="hideFlowchart()">
+                            <i class="fas fa-times"></i> Hide Flowchart
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <div class="manager-panel">
                 <div class="manager-section">
-                    <h3><i class="fas fa-chart-bar"></i> Today's Overview</h3>
+                    <h3><i class="fas fa-chart-bar"></i> Daily Overview</h3>
                     <div id="dailySummary" style="line-height: 1.8; padding: 15px; background: #f8f9fa; border-radius: 10px;">
-                        <p>• Total Processed Orders: <strong>0</strong></p>
-                        <p>• Delivered Orders: <strong>0</strong> (<strong>0%</strong> success rate)</p>
+                        <p>• Total Orders Processed: <strong>0</strong></p>
+                        <p>• Success Rate: <strong>0%</strong></p>
                         <p>• Cancellation Rate: <strong>0%</strong></p>
-                        <p>• Active Agents Today: <strong>0</strong></p>
-                        <p>• Total Actions Recorded: <strong>0</strong></p>
+                        <p>• Active Agents: <strong>0</strong></p>
+                        <p>• Total Actions: <strong>0</strong></p>
                     </div>
                 </div>
                 
@@ -776,9 +911,9 @@
 
             <div class="table-container">
                 <div class="table-header">
-                    <h3><i class="fas fa-list-alt"></i> All Orders</h3>
+                    <h3><i class="fas fa-list-alt"></i> All System Orders</h3>
                     <div class="filters">
-                        <input type="text" id="managerSearchInput" placeholder="Search..." onkeyup="filterManagerOrders()">
+                        <input type="text" id="managerSearchInput" placeholder="Search orders..." onkeyup="filterManagerOrders()">
                         <select id="managerStatusFilter" onchange="filterManagerOrders()">
                             <option value="all">All Status</option>
                             <option value="">Pending</option>
@@ -802,14 +937,14 @@
                                 <th>Amount</th>
                                 <th>Branch</th>
                                 <th>Status</th>
-                                <th>Marked By</th>
+                                <th>Agent</th>
                                 <th>Updated At</th>
                                 <th>Time Since Added</th>
                                 <th>Reason</th>
                             </tr>
                         </thead>
                         <tbody id="managerTableBody">
-                            <!-- All orders will appear here -->
+                            <!-- All orders appear here -->
                         </tbody>
                     </table>
                 </div>
@@ -818,6 +953,14 @@
             <div class="table-container">
                 <div class="table-header">
                     <h3><i class="fas fa-history"></i> Complete Action Log</h3>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-outline" onclick="clearAllHistory()" style="font-size: 0.85rem;">
+                            <i class="fas fa-trash"></i> Clear All History
+                        </button>
+                        <button class="btn btn-outline" onclick="exportActionLog()" style="font-size: 0.85rem;">
+                            <i class="fas fa-download"></i> Export Log
+                        </button>
+                    </div>
                 </div>
                 
                 <div style="overflow-x: auto; max-height: 400px;">
@@ -833,7 +976,7 @@
                             </tr>
                         </thead>
                         <tbody id="fullLogBody">
-                            <!-- Complete action log will appear here -->
+                            <!-- Complete action log appears here -->
                         </tbody>
                     </table>
                 </div>
@@ -846,10 +989,9 @@
         const CONFIG = {
             SHIFT_CODE: "OPERATIONS2024",
             MANAGER_CODE: "MANAGER2024",
-            DELAY_THRESHOLD_WARNING: 40, // minutes for warning
+            DELAY_THRESHOLD_WARNING: 30, // minutes for warning
             DELAY_THRESHOLD_CRITICAL: 45, // minutes for critical alert
-            WORKDAY_END_HOUR: 18, // 6 PM
-            WORKDAY_END_MINUTE: 0
+            DEMO_DATA_SIZE: 25
         };
 
         // ================= GLOBAL STATE =================
@@ -859,74 +1001,158 @@
             sessionStart: null,
             allOrders: [],
             actionLog: [],
-            agents: []
+            agents: [],
+            sessionTimer: null,
+            activeTime: 0,
+            lastAlertTime: 0, // For debouncing alerts
+            flowchartRendered: false // Track if flowchart has been rendered
         };
 
         // ================= INITIALIZATION =================
         document.addEventListener('DOMContentLoaded', function() {
             loadStateFromStorage();
+            initMermaid();
             
-            // Auto-backup every minute
+            // Auto-save every minute
             setInterval(saveState, 60000);
+            
+            // Check for alerts every 30 seconds
+            setInterval(checkForAlerts, 30000);
+            
+            // Start session timer if user is logged in
+            if (state.currentUser) {
+                startSessionTimer();
+            }
         });
 
         function loadStateFromStorage() {
-            // Load all orders from localStorage
-            const savedOrders = localStorage.getItem('ops_all_orders');
-            const savedLog = localStorage.getItem('ops_action_log');
-            const savedAgents = localStorage.getItem('ops_agents');
-            const savedUser = localStorage.getItem('ops_current_user');
+            // Clear previous login messages
+            document.getElementById('loginMessage').className = 'login-message';
+            document.getElementById('loginMessage').textContent = '';
+            
+            // Load all data from localStorage
+            const savedOrders = localStorage.getItem('ops_all_orders_v2');
+            const savedLog = localStorage.getItem('ops_action_log_v2');
+            const savedAgents = localStorage.getItem('ops_agents_v2');
+            const savedUser = localStorage.getItem('ops_current_user_v2');
             
             if (savedOrders) {
-                state.allOrders = JSON.parse(savedOrders);
+                try {
+                    state.allOrders = JSON.parse(savedOrders);
+                    // Ensure all orders have proper timestamps
+                    state.allOrders.forEach(order => {
+                        order.AddedAt = order.AddedAt || new Date().getTime();
+                        if (order.Status && !order.UpdatedAt) {
+                            order.UpdatedAt = new Date().getTime();
+                        }
+                    });
+                } catch (e) {
+                    console.error('Error parsing saved orders:', e);
+                    state.allOrders = [];
+                }
             }
             
             if (savedLog) {
-                state.actionLog = JSON.parse(savedLog);
+                try {
+                    state.actionLog = JSON.parse(savedLog);
+                } catch (e) {
+                    console.error('Error parsing saved log:', e);
+                    state.actionLog = [];
+                }
             }
             
             if (savedAgents) {
-                state.agents = JSON.parse(savedAgents);
+                try {
+                    state.agents = JSON.parse(savedAgents);
+                } catch (e) {
+                    console.error('Error parsing saved agents:', e);
+                    state.agents = [];
+                }
             }
             
             if (savedUser) {
-                const userData = JSON.parse(savedUser);
-                state.currentUser = userData.name;
-                state.userRole = userData.role;
-                state.sessionStart = new Date(userData.loginTime);
-                
-                showDashboard();
+                try {
+                    const userData = JSON.parse(savedUser);
+                    state.currentUser = userData.name;
+                    state.userRole = userData.role;
+                    state.sessionStart = new Date(userData.loginTime);
+                    state.activeTime = userData.activeTime || 0;
+                    
+                    showDashboard();
+                    startSessionTimer();
+                } catch (e) {
+                    console.error('Error parsing saved user:', e);
+                    localStorage.removeItem('ops_current_user_v2');
+                }
             }
         }
 
         function saveState() {
-            // Save all data to localStorage
-            localStorage.setItem('ops_all_orders', JSON.stringify(state.allOrders));
-            localStorage.setItem('ops_action_log', JSON.stringify(state.actionLog));
-            localStorage.setItem('ops_agents', JSON.stringify(state.agents));
+            // Save all data to localStorage with consistent timestamps
+            localStorage.setItem('ops_all_orders_v2', JSON.stringify(state.allOrders));
+            localStorage.setItem('ops_action_log_v2', JSON.stringify(state.actionLog));
+            localStorage.setItem('ops_agents_v2', JSON.stringify(state.agents));
             
             if (state.currentUser) {
-                localStorage.setItem('ops_current_user', JSON.stringify({
+                localStorage.setItem('ops_current_user_v2', JSON.stringify({
                     name: state.currentUser,
                     role: state.userRole,
-                    loginTime: state.sessionStart
+                    loginTime: state.sessionStart,
+                    activeTime: state.activeTime
                 }));
             }
         }
 
-        // ================= LOGIN SYSTEM =================
+        // ================= SESSION TIMER =================
+        function startSessionTimer() {
+            if (state.sessionTimer) {
+                clearInterval(state.sessionTimer);
+            }
+            
+            state.sessionTimer = setInterval(() => {
+                state.activeTime++;
+                updateActiveTimeDisplay();
+            }, 1000);
+            
+            updateActiveTimeDisplay();
+        }
+
+        function updateActiveTimeDisplay() {
+            const hours = Math.floor(state.activeTime / 3600);
+            const minutes = Math.floor((state.activeTime % 3600) / 60);
+            const seconds = state.activeTime % 60;
+            
+            const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (state.userRole === 'agent') {
+                document.getElementById('agentActiveTime').textContent = timeString;
+            }
+        }
+
+        // ================= LOGIN SYSTEM WITH FEEDBACK =================
         function toggleRoleFields() {
             const role = document.getElementById('userRole').value;
             document.getElementById('agentFields').style.display = role === 'agent' ? 'block' : 'none';
             document.getElementById('managerFields').style.display = role === 'manager' ? 'block' : 'none';
             document.getElementById('loginBtn').innerHTML = `<i class="fas fa-sign-in-alt"></i> ${role === 'manager' ? 'Manager Login' : 'Start Shift'}`;
+            
+            // Clear any previous messages
+            const loginMessage = document.getElementById('loginMessage');
+            loginMessage.className = 'login-message';
+            loginMessage.textContent = '';
         }
 
         function loginUser() {
             const role = document.getElementById('userRole').value;
+            const loginMessage = document.getElementById('loginMessage');
+            
+            // Clear previous messages
+            loginMessage.className = 'login-message';
+            loginMessage.textContent = '';
             
             if (!role) {
-                showToast('Please select a role', 'warning');
+                loginMessage.className = 'login-message error';
+                loginMessage.textContent = 'Please select a role';
                 return;
             }
             
@@ -935,12 +1161,14 @@
                 const code = document.getElementById('shiftCodeInput').value.trim();
                 
                 if (!name) {
-                    showToast('Please enter agent name', 'warning');
+                    loginMessage.className = 'login-message error';
+                    loginMessage.textContent = 'Please enter agent name';
                     return;
                 }
                 
                 if (code !== CONFIG.SHIFT_CODE) {
-                    showToast('Invalid shift access code', 'danger');
+                    loginMessage.className = 'login-message error';
+                    loginMessage.textContent = 'Invalid shift access code';
                     return;
                 }
                 
@@ -951,23 +1179,38 @@
                 if (!state.agents.includes(name)) {
                     state.agents.push(name);
                 }
+                
+                loginMessage.className = 'login-message success';
+                loginMessage.textContent = `Welcome, ${name}! Starting your shift...`;
+                
             } else if (role === 'manager') {
                 const code = document.getElementById('managerCodeInput').value.trim();
                 
                 if (code !== CONFIG.MANAGER_CODE) {
-                    showToast('Invalid manager access code', 'danger');
+                    loginMessage.className = 'login-message error';
+                    loginMessage.textContent = 'Invalid manager access code';
                     return;
                 }
                 
                 state.currentUser = 'Manager';
                 state.userRole = 'manager';
+                
+                loginMessage.className = 'login-message success';
+                loginMessage.textContent = 'Welcome, Manager! Loading dashboard...';
             }
             
             state.sessionStart = new Date();
-            saveState();
+            state.activeTime = 0;
             
-            showToast(`Welcome, ${state.currentUser}!`, 'success');
-            showDashboard();
+            // Show success message for 1 second before redirecting
+            setTimeout(() => {
+                saveState();
+                showDashboard();
+                startSessionTimer();
+                
+                // Show toast notification
+                showToast(`Welcome, ${state.currentUser}!`, 'success');
+            }, 1000);
         }
 
         function demoLogin() {
@@ -983,20 +1226,62 @@
             loadDemoData();
             
             state.sessionStart = new Date();
+            state.activeTime = 0;
             saveState();
             
-            showToast('Demo mode activated', 'success');
-            showDashboard();
+            // Show success message
+            const loginMessage = document.getElementById('loginMessage');
+            loginMessage.className = 'login-message success';
+            loginMessage.textContent = 'Demo mode activated! Loading dashboard...';
+            
+            setTimeout(() => {
+                showDashboard();
+                startSessionTimer();
+                showToast('Demo mode activated with sample data', 'success');
+            }, 1000);
         }
 
         function logoutUser() {
             if (confirm('Are you sure you want to logout?')) {
+                // Stop session timer
+                if (state.sessionTimer) {
+                    clearInterval(state.sessionTimer);
+                    state.sessionTimer = null;
+                }
+                
+                // Reset flowchart flag
+                state.flowchartRendered = false;
+                
                 // Save current state before logout
                 saveState();
                 
-                localStorage.removeItem('ops_current_user');
+                // Clear current user from localStorage but keep data
+                localStorage.removeItem('ops_current_user_v2');
+                
+                // Reset state
+                state.currentUser = null;
+                state.userRole = '';
+                state.sessionStart = null;
+                
+                // Show logout message
+                const loginMessage = document.getElementById('loginMessage');
+                loginMessage.className = 'login-message success';
+                loginMessage.textContent = 'Successfully logged out!';
+                
+                // Hide dashboards and show login screen
+                document.getElementById('agentDashboard').classList.remove('active');
+                document.getElementById('managerDashboard').classList.remove('active');
+                document.getElementById('loginScreen').style.display = 'block';
+                
+                // Clear form fields
+                document.getElementById('userRole').value = '';
+                document.getElementById('agentNameInput').value = '';
+                document.getElementById('shiftCodeInput').value = '';
+                document.getElementById('managerCodeInput').value = '';
+                document.getElementById('agentFields').style.display = 'none';
+                document.getElementById('managerFields').style.display = 'none';
+                
                 showToast('Logged out successfully', 'success');
-                setTimeout(() => location.reload(), 1000);
             }
         }
 
@@ -1007,14 +1292,19 @@
             if (state.userRole === 'agent') {
                 document.getElementById('agentDashboard').classList.add('active');
                 document.getElementById('managerDashboard').classList.remove('active');
+                document.querySelector('.btn-manager[onclick="showFlowchart()"]').style.display = 'inline-flex';
                 refreshAgentDashboard();
             } else if (state.userRole === 'manager') {
                 document.getElementById('managerDashboard').classList.add('active');
                 document.getElementById('agentDashboard').classList.remove('active');
+                document.getElementById('flowchartSection').style.display = 'block';
                 refreshManagerDashboard();
+                if (!state.flowchartRendered) {
+                    refreshFlowchart();
+                    state.flowchartRendered = true;
+                }
             }
             
-            // Update user info
             updateUserInfo();
         }
 
@@ -1055,10 +1345,9 @@
             const tbody = document.getElementById('agentTableBody');
             tbody.innerHTML = '';
             
-            // Agent sees only unmarked orders (empty status) that are not marked by current agent
+            // Agent sees only unmarked orders (empty status)
             const pendingOrders = state.allOrders.filter(order => 
-                (order.Status === "" || !order.Status) && 
-                !isOrderMarkedByCurrentAgent(order)
+                order.Status === "" || !order.Status
             );
             
             const searchTerm = document.getElementById('agentSearchInput').value.toLowerCase();
@@ -1084,6 +1373,7 @@
                         <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-gray);">
                             <i class="fas fa-check-circle" style="font-size: 2rem; margin-bottom: 10px; display: block; color: var(--success);"></i>
                             <div>No pending orders available</div>
+                            <div style="font-size: 0.9rem; margin-top: 10px;">All orders have been processed!</div>
                         </td>
                     </tr>
                 `;
@@ -1093,22 +1383,26 @@
             filteredOrders.forEach(order => {
                 const tr = document.createElement('tr');
                 
-                // Calculate time elapsed
-                const addedDate = order.AddedAt ? new Date(order.AddedAt) : new Date(order.OrderDate || Date.now());
-                const minutesPassed = Math.floor((now - addedDate.getTime()) / 60000);
+                // Calculate time elapsed with consistent timestamp
+                const addedTime = order.AddedAt || new Date(order.OrderDate || Date.now()).getTime();
+                const minutesPassed = Math.floor((now - addedTime) / 60000);
                 
                 // Determine time class
                 let timeClass = 'time-normal';
                 if (minutesPassed >= CONFIG.DELAY_THRESHOLD_CRITICAL) {
                     timeClass = 'time-critical';
+                    tr.classList.add('alert-pulse');
+                    showAlertIfNeeded(order.OrderID, minutesPassed);
                 } else if (minutesPassed >= CONFIG.DELAY_THRESHOLD_WARNING) {
                     timeClass = 'time-warning';
                 }
                 
+                const orderDate = new Date(addedTime);
+                
                 tr.innerHTML = `
                     <td><strong>${order.OrderID}</strong></td>
                     <td>${order.Customer || 'Unknown Customer'}</td>
-                    <td>${addedDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                    <td>${orderDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
                     <td>${order.Total ? `$${order.Total.toFixed(2)}` : '$0.00'}</td>
                     <td><span class="status-badge">${order.Branch || 'Unspecified'}</span></td>
                     <td>
@@ -1134,12 +1428,6 @@
             });
         }
 
-        function isOrderMarkedByCurrentAgent(order) {
-            // Check if order was already marked by current agent
-            if (!order.MarkedBy) return false;
-            return order.MarkedBy === state.currentUser;
-        }
-
         function updateAgentHistory() {
             const tbody = document.getElementById('agentHistoryBody');
             tbody.innerHTML = '';
@@ -1153,9 +1441,10 @@
             if (myActions.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="5" style="text-align: center; padding: 30px; color: var(--text-gray);">
+                        <td colspan="6" style="text-align: center; padding: 30px; color: var(--text-gray);">
                             <i class="fas fa-history" style="font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.3;"></i>
-                            <div>No previous actions</div>
+                            <div>No actions recorded yet</div>
+                            <div style="font-size: 0.9rem; margin-top: 10px;">Start processing orders to see your history</div>
                         </td>
                     </tr>
                 `;
@@ -1168,7 +1457,8 @@
                 
                 tr.innerHTML = `
                     <td><strong>${action.OrderID}</strong></td>
-                    <td><span class="status-badge status-${action.Status.toLowerCase()}">${action.Status}</span></td>
+                    <td>${action.Action || 'Status Update'}</td>
+                    <td><span class="status-badge status-${action.Status ? action.Status.toLowerCase() : 'pending'}">${action.Status || 'Pending'}</span></td>
                     <td>${action.Reason || '-'}</td>
                     <td>${actionDate.toLocaleDateString()}</td>
                     <td>${actionDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
@@ -1179,6 +1469,17 @@
 
         function filterAgentOrders() {
             updateAgentOrdersTable();
+        }
+
+        function clearMyHistory() {
+            if (confirm('Clear your personal action history? This cannot be undone.')) {
+                // Remove only current agent's actions from log
+                const newActionLog = state.actionLog.filter(action => action.MarkedBy !== state.currentUser);
+                state.actionLog = newActionLog;
+                saveState();
+                updateAgentHistory();
+                showToast('Your history has been cleared', 'success');
+            }
         }
 
         // ================= MANAGER DASHBOARD =================
@@ -1193,6 +1494,7 @@
             const totalOrders = state.allOrders.length;
             const deliveredOrders = state.allOrders.filter(o => o.Status === 'Delivered').length;
             const cancelledOrders = state.allOrders.filter(o => o.Status === 'Cancelled').length;
+            const pendingOrders = state.allOrders.filter(o => o.Status === "" || !o.Status).length;
             
             document.getElementById('managerTotalOrders').textContent = totalOrders;
             document.getElementById('managerDeliveredOrders').textContent = deliveredOrders;
@@ -1200,17 +1502,16 @@
             document.getElementById('managerActiveAgents').textContent = state.agents.length;
             
             // Update overview
-            const pendingOrders = state.allOrders.filter(o => o.Status === "" || !o.Status).length;
             const successRate = totalOrders > 0 ? Math.round((deliveredOrders / totalOrders) * 100) : 0;
             const cancelRate = totalOrders > 0 ? Math.round((cancelledOrders / totalOrders) * 100) : 0;
             
             document.getElementById('dailySummary').innerHTML = `
-                <p>• Total Processed Orders: <strong>${totalOrders}</strong></p>
-                <p>• Delivered Orders: <strong>${deliveredOrders}</strong> (<strong>${successRate}%</strong> success rate)</p>
-                <p>• Pending Orders: <strong>${pendingOrders}</strong></p>
+                <p>• Total Orders Processed: <strong>${totalOrders}</strong></p>
+                <p>• Success Rate: <strong>${successRate}%</strong></p>
                 <p>• Cancellation Rate: <strong>${cancelRate}%</strong></p>
+                <p>• Pending Orders: <strong>${pendingOrders}</strong></p>
                 <p>• Active Agents: <strong>${state.agents.length}</strong></p>
-                <p>• Total Actions Recorded: <strong>${state.actionLog.length}</strong></p>
+                <p>• Total Actions: <strong>${state.actionLog.length}</strong></p>
             `;
         }
 
@@ -1255,16 +1556,16 @@
             filteredOrders.forEach(order => {
                 const tr = document.createElement('tr');
                 
-                // Format dates
-                const orderDate = new Date(order.OrderDate || order.AddedAt || Date.now());
-                const updatedDate = order.Timestamp ? new Date(order.Timestamp) : null;
-                const minutesPassed = Math.floor((now - orderDate.getTime()) / 60000);
+                // Calculate time with consistent timestamps
+                const addedTime = order.AddedAt || new Date(order.OrderDate || Date.now()).getTime();
+                const updatedTime = order.UpdatedAt || addedTime;
+                const minutesPassed = Math.floor((now - addedTime) / 60000);
                 
                 // Determine time class
                 let timeClass = 'time-normal';
-                if (minutesPassed >= CONFIG.DELAY_THRESHOLD_CRITICAL) {
+                if (minutesPassed >= CONFIG.DELAY_THRESHOLD_CRITICAL && (!order.Status || order.Status === "")) {
                     timeClass = 'time-critical';
-                } else if (minutesPassed >= CONFIG.DELAY_THRESHOLD_WARNING) {
+                } else if (minutesPassed >= CONFIG.DELAY_THRESHOLD_WARNING && (!order.Status || order.Status === "")) {
                     timeClass = 'time-warning';
                 }
                 
@@ -1274,6 +1575,9 @@
                 else if (order.Status === 'Cancelled') statusClass = 'status-cancelled';
                 else if (order.Status === 'Delayed') statusClass = 'status-delayed';
                 
+                const orderDate = new Date(addedTime);
+                const updatedDate = new Date(updatedTime);
+                
                 tr.innerHTML = `
                     <td><strong>${order.OrderID}</strong></td>
                     <td>${order.Customer || 'Unknown Customer'}</td>
@@ -1282,7 +1586,7 @@
                     <td><span class="status-badge">${order.Branch || 'Unspecified'}</span></td>
                     <td><span class="status-badge ${statusClass}">${order.Status || 'Pending'}</span></td>
                     <td>${order.MarkedBy || '-'}</td>
-                    <td>${updatedDate ? updatedDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}</td>
+                    <td>${updatedDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
                     <td>
                         <span class="time-indicator ${timeClass}">
                             ${minutesPassed} min
@@ -1319,7 +1623,7 @@
                 
                 tr.innerHTML = `
                     <td><strong>${action.OrderID}</strong></td>
-                    <td>${action.Status || 'Update'}</td>
+                    <td>${action.Action || action.Status || 'Update'}</td>
                     <td>${action.MarkedBy || 'Unknown'}</td>
                     <td>${actionDate.toLocaleDateString()}</td>
                     <td>${actionDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
@@ -1350,7 +1654,7 @@
                         <span>${agentActions.length} actions</span>
                     </div>
                     <div style="background: var(--border); height: 8px; border-radius: 4px; overflow: hidden;">
-                        <div style="width: ${Math.min(agentActions.length * 10, 100)}%; height: 100%; background: var(--primary);"></div>
+                        <div style="width: ${Math.min(agentActions.length * 5, 100)}%; height: 100%; background: var(--primary);"></div>
                     </div>
                 `;
                 container.appendChild(div);
@@ -1390,6 +1694,22 @@
             updateManagerOrdersTable();
         }
 
+        function clearAllHistory() {
+            if (confirm('Clear ALL action history? This cannot be undone.')) {
+                state.actionLog = [];
+                saveState();
+                updateManagerLog();
+                showToast('All history cleared', 'success');
+            }
+        }
+
+        function exportActionLog() {
+            const dataStr = JSON.stringify(state.actionLog, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            saveAs(blob, `action_log_${new Date().toISOString().split('T')[0]}.json`);
+            showToast('Action log exported', 'success');
+        }
+
         // ================= ORDER PROCESSING =================
         function markOrderAs(orderId, status) {
             if (state.userRole !== 'agent') {
@@ -1400,7 +1720,11 @@
             let reason = '';
             if (status === 'Cancelled' || status === 'Delayed') {
                 reason = prompt(`Please enter ${status === 'Cancelled' ? 'cancellation' : 'delay'} reason:`);
-                if (reason === null || reason.trim() === '') {
+                if (reason === null) {
+                    showToast('Action cancelled', 'warning');
+                    return;
+                }
+                if (reason.trim() === '') {
                     showToast('Reason is required', 'warning');
                     return;
                 }
@@ -1419,16 +1743,20 @@
             const order = state.allOrders[orderIndex];
             const oldStatus = order.Status || '';
             
+            // Store consistent timestamps
+            order.AddedAt = order.AddedAt || new Date().getTime();
+            order.UpdatedAt = new Date().getTime();
+            
             // Update order
             order.Status = status;
             order.MarkedBy = state.currentUser;
             order.Timestamp = new Date().toISOString();
             order.Reason = reason;
-            order.UpdatedAt = new Date().getTime();
             
             // Add to action log
             const action = {
                 OrderID: orderId,
+                Action: `Status changed: ${oldStatus || 'Pending'} → ${status}`,
                 Status: status,
                 MarkedBy: state.currentUser,
                 Timestamp: new Date().toISOString(),
@@ -1452,12 +1780,103 @@
             showToast(`Order ${orderId} updated to "${status}"`, 'success');
         }
 
-        // ================= FILE HANDLING =================
+        // ================= ALERT SYSTEM WITH DEBOUNCING =================
+        function showAlertIfNeeded(orderId, minutesPassed) {
+            const now = Date.now();
+            
+            // Debounce: only play alert once every 5 seconds
+            if (now - state.lastAlertTime < 5000) {
+                return;
+            }
+            
+            if (minutesPassed >= CONFIG.DELAY_THRESHOLD_CRITICAL) {
+                playAlert();
+                state.lastAlertTime = now;
+                
+                // Show toast only for critical alerts
+                if (state.userRole === 'agent') {
+                    showToast(`CRITICAL: Order ${orderId} pending for ${minutesPassed} minutes!`, 'danger');
+                }
+            }
+        }
+
+        function playAlert() {
+            try {
+                const audio = document.getElementById('alertSound');
+                audio.currentTime = 0;
+                audio.play().catch(e => {
+                    console.log("Audio play failed:", e);
+                });
+            } catch (e) {
+                console.log("Audio error:", e);
+            }
+        }
+
+        function checkForAlerts() {
+            const now = new Date().getTime();
+            let hasCriticalAlert = false;
+            
+            state.allOrders.forEach(order => {
+                if (order.Status === "" || !order.Status) {
+                    const addedTime = order.AddedAt || new Date(order.OrderDate || Date.now()).getTime();
+                    const minutesPassed = Math.floor((now - addedTime) / 60000);
+                    
+                    if (minutesPassed >= CONFIG.DELAY_THRESHOLD_CRITICAL) {
+                        hasCriticalAlert = true;
+                    }
+                }
+            });
+            
+            if (hasCriticalAlert && state.userRole === 'manager') {
+                showAlertIfNeeded('SYSTEM', CONFIG.DELAY_THRESHOLD_CRITICAL);
+            }
+        }
+
+        // ================= FLOWCHART FUNCTIONS =================
+        function initMermaid() {
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: 'neutral',
+                flowchart: {
+                    useMaxWidth: true,
+                    htmlLabels: true
+                }
+            });
+        }
+
+        function showFlowchart() {
+            if (state.userRole === 'agent') {
+                document.getElementById('flowchartSection').style.display = 'block';
+                refreshFlowchart();
+            } else {
+                document.getElementById('flowchartSection').style.display = 'block';
+                if (!state.flowchartRendered) {
+                    refreshFlowchart();
+                    state.flowchartRendered = true;
+                }
+            }
+        }
+
+        function hideFlowchart() {
+            document.getElementById('flowchartSection').style.display = 'none';
+        }
+
+        function refreshFlowchart() {
+            const element = document.getElementById('flowchart');
+            if (element) {
+                const graphDefinition = element.textContent;
+                mermaid.render('flowchart-svg', graphDefinition, function(svgCode) {
+                    element.innerHTML = svgCode;
+                });
+            }
+        }
+
+        // ================= FILE HANDLING WITH ERROR HANDLING =================
         function downloadTemplate() {
             const templateData = [
-                ["OrderID", "Customer", "OrderDate", "Total", "Branch", "Status", "Reason", "MarkedBy", "Timestamp"],
-                ["ORD-1001", "John Smith", new Date().toISOString(), 150.00, "Main Branch", "", "", "", ""],
-                ["ORD-1002", "Jane Doe", new Date(Date.now() - 3600000).toISOString(), 89.99, "Downtown", "Delivered", "Delivered on time", "Agent 1", new Date().toISOString()]
+                ["OrderID", "Customer", "OrderDate", "Total", "Branch", "Status", "Reason", "MarkedBy", "Timestamp", "AddedAt"],
+                ["ORD-1001", "John Smith", new Date().toISOString(), 150.00, "Main Branch", "", "", "", "", new Date().getTime()],
+                ["ORD-1002", "Jane Doe", new Date(Date.now() - 3600000).toISOString(), 89.99, "Downtown", "Delivered", "Delivered on time", "Agent 1", new Date().toISOString(), new Date(Date.now() - 3600000).getTime()]
             ];
             
             const ws = XLSX.utils.aoa_to_sheet(templateData);
@@ -1471,6 +1890,13 @@
             if (!file) return;
             
             const reader = new FileReader();
+            
+            // Add error handling
+            reader.onerror = function() {
+                showToast("Error reading file. Please try again.", 'danger');
+                console.error("FileReader error:", reader.error);
+            };
+            
             reader.onload = function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
@@ -1495,35 +1921,46 @@
                             return defaultValue;
                         };
                         
+                        // Get order date
+                        const orderDateStr = getVal(['OrderDate', 'Date', 'Time', 'Order Date'], new Date().toISOString());
+                        const orderDate = new Date(orderDateStr);
+                        
+                        // Store consistent timestamps
+                        const addedAt = getVal(['AddedAt', 'Added', 'CreatedAt'], orderDate.getTime());
+                        
                         return {
-                            OrderID: getVal(['OrderID', 'Order no', 'id', 'ID', 'Order ID'], `ORD-${1000 + index}`),
+                            OrderID: getVal(['OrderID', 'Order no', 'id', 'ID', 'Order ID'], `ORD-${1000 + index + state.allOrders.length}`),
                             Customer: getVal(['Customer', 'Cus. Name', 'Client', 'Customer Name'], 'Unknown Customer'),
-                            OrderDate: getVal(['OrderDate', 'Date', 'Time', 'Order Date'], new Date().toISOString()),
+                            OrderDate: orderDateStr,
                             Total: parseFloat(getVal(['Total', 'Amount', 'Order Total', 'Price'], 0)) || 0,
                             Branch: getVal(['Branch', 'Outlet', 'Location', 'Store'], 'Unspecified'),
                             Status: getVal(['Status', 'status', 'Order Status', 'State'], ''),
                             Reason: getVal(['Reason', 'Notes', 'Comment', 'Remarks'], ''),
                             MarkedBy: getVal(['MarkedBy', 'Agent', 'Modified By', 'Updated By'], ''),
                             Timestamp: getVal(['Timestamp', 'Last Updated', 'Update Time'], ''),
-                            AddedAt: new Date().getTime()
+                            AddedAt: addedAt,
+                            UpdatedAt: getVal(['UpdatedAt', 'LastModified'], null)
                         };
                     });
                     
                     // Add only new orders (not duplicates)
+                    let addedCount = 0;
                     newOrders.forEach(newOrder => {
                         const existingIndex = state.allOrders.findIndex(o => o.OrderID === newOrder.OrderID);
                         if (existingIndex === -1) {
                             state.allOrders.push(newOrder);
+                            addedCount++;
                         }
                     });
                     
                     // Add import action to log
                     const importAction = {
                         OrderID: 'SYSTEM',
+                        Action: 'Data Import',
                         Status: 'Import',
                         MarkedBy: state.currentUser,
                         Timestamp: new Date().toISOString(),
-                        Reason: `Imported ${newOrders.length} orders from file: ${file.name}`,
+                        Reason: `Imported ${addedCount} orders from file: ${file.name}`,
                         AddedAt: new Date().getTime()
                     };
                     
@@ -1539,10 +1976,11 @@
                         refreshManagerDashboard();
                     }
                     
-                    showToast(`Successfully imported ${newOrders.length} orders`, 'success');
+                    showToast(`Successfully imported ${addedCount} orders`, 'success');
+                    
                 } catch (error) {
                     showToast('Error processing file: ' + error.message, 'danger');
-                    console.error(error);
+                    console.error('File processing error:', error);
                 }
             };
             
@@ -1561,13 +1999,17 @@
             const demoOrders = [];
             const now = new Date();
             
-            // Create 20 demo orders
-            for (let i = 1; i <= 20; i++) {
+            // Create demo orders
+            for (let i = 1; i <= CONFIG.DEMO_DATA_SIZE; i++) {
                 const hoursAgo = Math.floor(Math.random() * 8);
                 const orderDate = new Date(now.getTime() - hoursAgo * 3600000);
                 const statuses = ['', 'Delivered', 'Cancelled', 'Delayed'];
                 const status = statuses[Math.floor(Math.random() * statuses.length)];
                 const markedBy = status !== '' ? (Math.random() > 0.5 ? 'Agent 1' : 'Agent 2') : '';
+                
+                // Store consistent timestamps
+                const addedAt = orderDate.getTime();
+                const updatedAt = status !== '' ? new Date(now.getTime() - Math.random() * hoursAgo * 3600000).getTime() : null;
                 
                 demoOrders.push({
                     OrderID: `ORD-DEMO-${1000 + i}`,
@@ -1580,8 +2022,9 @@
                            status === 'Cancelled' ? 'Customer cancelled order' : 
                            status === 'Delayed' ? 'Delivery delay' : '',
                     MarkedBy: markedBy,
-                    Timestamp: status !== '' ? orderDate.toISOString() : '',
-                    AddedAt: orderDate.getTime()
+                    Timestamp: status !== '' ? new Date(updatedAt).toISOString() : '',
+                    AddedAt: addedAt,
+                    UpdatedAt: updatedAt
                 });
             }
             
@@ -1597,6 +2040,7 @@
             const demoActions = [
                 {
                     OrderID: 'ORD-DEMO-1001',
+                    Action: 'Status changed: Pending → Delivered',
                     Status: 'Delivered',
                     MarkedBy: 'Agent 1',
                     Timestamp: new Date(now.getTime() - 2 * 3600000).toISOString(),
@@ -1605,6 +2049,7 @@
                 },
                 {
                     OrderID: 'ORD-DEMO-1003',
+                    Action: 'Status changed: Pending → Cancelled',
                     Status: 'Cancelled',
                     MarkedBy: 'Agent 2',
                     Timestamp: new Date(now.getTime() - 1 * 3600000).toISOString(),
@@ -1625,11 +2070,10 @@
             // Add demo agents
             if (!state.agents.includes('Agent 1')) state.agents.push('Agent 1');
             if (!state.agents.includes('Agent 2')) state.agents.push('Agent 2');
+            if (!state.agents.includes('Demo Agent')) state.agents.push('Demo Agent');
             
             // Save state
             saveState();
-            
-            showToast('Demo data loaded successfully', 'success');
         }
 
         // ================= REPORTS =================
@@ -1671,7 +2115,7 @@
                 
                 // Summary sheet
                 const summaryRows = [
-                    ["Daily Operations Report", "", "", "", ""],
+                    ["Daily Operations Report v2.0", "", "", "", ""],
                     ["Date", reportData.summary.date, "", "", ""],
                     ["Generated By", reportData.summary.generatedBy, "", "", ""],
                     ["Generation Time", new Date(reportData.summary.generationTime).toLocaleString(), "", "", ""],
@@ -1706,7 +2150,7 @@
                 
                 // Create filename
                 const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-                const filename = `Daily_Report_${new Date().toISOString().split('T')[0]}_${timestamp}.xlsx`;
+                const filename = `Daily_Report_v2_${new Date().toISOString().split('T')[0]}_${timestamp}.xlsx`;
                 
                 XLSX.writeFile(wb, filename);
                 
@@ -1715,12 +2159,12 @@
             } catch (error) {
                 hideLoading();
                 showToast('Error exporting report: ' + error.message, 'danger');
-                console.error(error);
+                console.error('Report export error:', error);
             }
         }
 
         function archiveDay() {
-            if (confirm('Archive today\'s data and start a new day?')) {
+            if (confirm('Archive today\'s data and start fresh for next day?')) {
                 // Create archive copy
                 const archiveData = {
                     date: new Date().toISOString().split('T')[0],
@@ -1731,12 +2175,12 @@
                 };
                 
                 // Save archive
-                const archive = JSON.parse(localStorage.getItem('ops_archive') || '[]');
+                const archive = JSON.parse(localStorage.getItem('ops_archive_v2') || '[]');
                 archive.push(archiveData);
                 if (archive.length > 30) archive.shift(); // Keep last 30 days
-                localStorage.setItem('ops_archive', JSON.stringify(archive));
+                localStorage.setItem('ops_archive_v2', JSON.stringify(archive));
                 
-                // Reset current data (keep structure)
+                // Reset current data - keep structure but clear agent assignments
                 state.allOrders = state.allOrders.map(order => ({
                     ...order,
                     Status: '',
@@ -1746,8 +2190,8 @@
                     UpdatedAt: null
                 }));
                 
-                // Keep action log (for manager)
-                // state.actionLog = []; // Can clear if desired
+                // Keep action log for manager
+                // state.actionLog = []; // Optional: clear action log
                 
                 // Save new state
                 saveState();
@@ -1757,7 +2201,7 @@
                     refreshManagerDashboard();
                 }
                 
-                showToast('Day archived and new day started', 'manager');
+                showToast('Day archived and system reset for new day', 'manager');
             }
         }
 
@@ -1806,1820 +2250,6 @@
         }
 
         // Load state on start
-        loadStateFromStorage();
-    </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام إدارة الطلبات - إصدار الفصل بين الوكيل والمدير</title>
-    
-    <!-- Libraries -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
-    <style>
-        :root {
-            --primary: #4361ee;
-            --primary-dark: #3a56d4;
-            --secondary: #7209b7;
-            --success: #4cc9f0;
-            --warning: #f72585;
-            --danger: #ff0054;
-            --info: #4895ef;
-            --manager: #06d6a0;
-            --dark: #212529;
-            --light: #f8f9fa;
-            --border: #dee2e6;
-            --text-gray: #6c757d;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8f0 100%);
-            color: var(--dark);
-            min-height: 100vh;
-            direction: rtl;
-        }
-
-        /* Header */
-        header {
-            background: linear-gradient(90deg, var(--dark) 0%, #343a40 100%);
-            color: white;
-            padding: 15px 20px;
-            text-align: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        header h1 {
-            font-size: 1.8rem;
-            font-weight: 700;
-            margin-bottom: 5px;
-        }
-
-        header .version {
-            font-size: 0.9rem;
-            color: rgba(255,255,255,0.7);
-        }
-
-        /* Container */
-        .container {
-            max-width: 1400px;
-            margin: 20px auto;
-            padding: 0 20px;
-        }
-
-        /* Login Screen */
-        #loginScreen {
-            background: white;
-            border-radius: 15px;
-            padding: 40px;
-            margin: 50px auto;
-            max-width: 500px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-
-        #loginScreen h2 {
-            color: var(--dark);
-            margin-bottom: 25px;
-            font-size: 1.8rem;
-        }
-
-        .login-icon {
-            font-size: 4rem;
-            color: var(--primary);
-            margin-bottom: 20px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-            text-align: right;
-        }
-
-        .form-group label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: var(--dark);
-        }
-
-        .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 12px 15px;
-            border: 2px solid var(--border);
-            border-radius: 8px;
-            font-size: 1rem;
-            background: white;
-        }
-
-        .form-group select {
-            cursor: pointer;
-        }
-
-        .code-note {
-            font-size: 0.85rem;
-            color: var(--text-gray);
-            margin-top: 5px;
-            text-align: center;
-        }
-
-        /* Dashboard */
-        .dashboard {
-            display: none;
-        }
-
-        .dashboard.active {
-            display: block;
-        }
-
-        /* Dashboard Header */
-        .dashboard-header {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 25px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .user-avatar {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: linear-gradient(45deg, var(--primary), var(--secondary));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 1.2rem;
-        }
-
-        .user-details h3 {
-            font-size: 1.3rem;
-            color: var(--dark);
-            margin-bottom: 5px;
-        }
-
-        .user-role {
-            background: var(--manager);
-            color: white;
-            padding: 3px 10px;
-            border-radius: 15px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-
-        .user-role.agent {
-            background: var(--info);
-        }
-
-        .stats-container {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .stat-item {
-            text-align: center;
-            padding: 10px 20px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            min-width: 120px;
-        }
-
-        .stat-value {
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: var(--dark);
-            margin-bottom: 5px;
-        }
-
-        .stat-label {
-            font-size: 0.9rem;
-            color: var(--text-gray);
-            font-weight: 600;
-        }
-
-        /* Action Buttons */
-        .action-buttons {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 25px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 24px;
-            border-radius: 10px;
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.95rem;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-        }
-
-        .btn-primary {
-            background: linear-gradient(45deg, var(--primary), var(--secondary));
-            color: white;
-        }
-
-        .btn-success {
-            background: linear-gradient(45deg, var(--success), #38b000);
-            color: white;
-        }
-
-        .btn-danger {
-            background: linear-gradient(45deg, var(--danger), #d00000);
-            color: white;
-        }
-
-        .btn-outline {
-            background: transparent;
-            border: 2px solid var(--primary);
-            color: var(--primary);
-        }
-
-        .btn-manager {
-            background: linear-gradient(45deg, var(--manager), #06a884);
-            color: white;
-        }
-
-        /* Table */
-        .table-container {
-            background: white;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 4px 25px rgba(0,0,0,0.1);
-            margin-bottom: 30px;
-        }
-
-        .table-header {
-            padding: 20px;
-            background: linear-gradient(90deg, #f8f9fa, #e9ecef);
-            border-bottom: 2px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-
-        .table-header h3 {
-            margin: 0;
-            color: var(--dark);
-            font-size: 1.2rem;
-        }
-
-        .filters {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .filters input,
-        .filters select {
-            padding: 8px 15px;
-            border-radius: 8px;
-            border: 2px solid var(--border);
-            min-width: 150px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th {
-            padding: 15px;
-            text-align: right;
-            font-weight: 700;
-            color: var(--dark);
-            border-bottom: 2px solid var(--border);
-            background: #f8f9fa;
-        }
-
-        td {
-            padding: 12px 15px;
-            border-bottom: 1px solid var(--border);
-            vertical-align: middle;
-        }
-
-        tr:hover {
-            background: #f8f9fa;
-        }
-
-        /* Status Badges */
-        .status-badge {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            text-align: center;
-            min-width: 80px;
-        }
-
-        .status-pending { background: rgba(251, 191, 36, 0.15); color: #d97706; }
-        .status-delivered { background: rgba(76, 201, 240, 0.15); color: #0891b2; }
-        .status-delayed { background: rgba(247, 37, 133, 0.15); color: #be185d; }
-        .status-cancelled { background: rgba(108, 117, 125, 0.15); color: var(--text-gray); }
-
-        /* Time Indicators */
-        .time-indicator {
-            font-size: 0.85rem;
-            font-weight: 600;
-            padding: 4px 8px;
-            border-radius: 12px;
-            display: inline-block;
-        }
-
-        .time-normal { background: rgba(76, 201, 240, 0.2); color: #0891b2; }
-        .time-warning { background: rgba(247, 37, 133, 0.2); color: #be185d; }
-        .time-critical { background: rgba(255, 0, 84, 0.2); color: #721c24; }
-
-        /* Action Buttons */
-        .action-cell {
-            display: flex;
-            gap: 5px;
-            flex-wrap: wrap;
-        }
-
-        .btn-icon {
-            width: 36px;
-            height: 36px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.9rem;
-            color: white;
-        }
-
-        .btn-icon:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-
-        .btn-icon-success { background: var(--success); }
-        .btn-icon-danger { background: var(--danger); }
-        .btn-icon-warning { background: var(--warning); }
-
-        /* Manager Panel */
-        .manager-panel {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 25px rgba(0,0,0,0.1);
-            border-right: 5px solid var(--manager);
-        }
-
-        .manager-section {
-            margin-bottom: 25px;
-        }
-
-        .manager-section h3 {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 15px;
-            color: var(--dark);
-            font-size: 1.2rem;
-        }
-
-        .manager-section h3 i {
-            color: var(--manager);
-        }
-
-        /* Toast Notifications */
-        .toast-container {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            z-index: 1000;
-        }
-
-        .toast {
-            background: white;
-            padding: 15px 20px;
-            border-radius: 10px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            min-width: 300px;
-            transform: translateX(-100%);
-            opacity: 0;
-            animation: slideInLeft 0.3s ease forwards;
-            border-right: 4px solid var(--primary);
-        }
-
-        @keyframes slideInLeft {
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        .toast.success { border-right-color: var(--success); }
-        .toast.warning { border-right-color: var(--warning); }
-        .toast.danger { border-right-color: var(--danger); }
-        .toast.manager { border-right-color: var(--manager); }
-
-        /* Loading Overlay */
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(255,255,255,0.9);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 2000;
-        }
-
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--text-gray);
-        }
-
-        .empty-state i {
-            font-size: 4rem;
-            margin-bottom: 20px;
-            color: #e9ecef;
-            opacity: 0.5;
-        }
-
-        .empty-state h3 {
-            font-size: 1.5rem;
-            margin-bottom: 10px;
-            color: var(--dark);
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .container {
-                padding: 10px;
-            }
-            
-            .dashboard-header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            
-            .stats-container {
-                width: 100%;
-                justify-content: space-between;
-            }
-            
-            .stat-item {
-                flex: 1;
-                min-width: 100px;
-            }
-            
-            .table-header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            
-            .filters {
-                width: 100%;
-                flex-direction: column;
-            }
-            
-            .filters input,
-            .filters select {
-                width: 100%;
-            }
-        }
-    </style>
-</head>
-<body>
-    <!-- Toast Container -->
-    <div class="toast-container" id="toastContainer"></div>
-
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="spinner"></div>
-    </div>
-
-    <!-- Header -->
-    <header>
-        <h1>نظام إدارة الطلبات</h1>
-        <div class="version">إصدار الفصل بين الوكيل والمدير</div>
-    </header>
-
-    <!-- Main Container -->
-    <div class="container">
-        <!-- Login Screen -->
-        <div id="loginScreen">
-            <div class="login-icon">
-                <i class="fas fa-user-lock"></i>
-            </div>
-            <h2>تسجيل الدخول</h2>
-            
-            <div class="form-group">
-                <label for="userRole">الدور:</label>
-                <select id="userRole" onchange="toggleRoleFields()">
-                    <option value="">اختر الدور</option>
-                    <option value="agent">وكيل / موظف</option>
-                    <option value="manager">مدير</option>
-                </select>
-            </div>
-            
-            <div id="agentFields" style="display: none;">
-                <div class="form-group">
-                    <label for="agentNameInput">اسم الوكيل:</label>
-                    <input type="text" id="agentNameInput" placeholder="أدخل اسمك الكامل">
-                </div>
-                
-                <div class="form-group">
-                    <label for="shiftCodeInput">كود التحول:</label>
-                    <input type="password" id="shiftCodeInput" placeholder="أدخل كود التحول">
-                    <div class="code-note">الكود الافتراضي: OPERATIONS2024</div>
-                </div>
-            </div>
-            
-            <div id="managerFields" style="display: none;">
-                <div class="form-group">
-                    <label for="managerCodeInput">كود المدير:</label>
-                    <input type="password" id="managerCodeInput" placeholder="أدخل كود المدير">
-                    <div class="code-note">الكود الافتراضي: MANAGER2024</div>
-                </div>
-            </div>
-            
-            <div style="display: flex; gap: 10px; margin-top: 30px;">
-                <button class="btn btn-primary" style="flex: 1;" onclick="loginUser()" id="loginBtn">
-                    <i class="fas fa-sign-in-alt"></i> تسجيل الدخول
-                </button>
-                <button class="btn btn-outline" style="flex: 1;" onclick="demoLogin()">
-                    <i class="fas fa-magic"></i> تجربة العرض
-                </button>
-            </div>
-        </div>
-
-        <!-- Agent Dashboard -->
-        <div id="agentDashboard" class="dashboard">
-            <div class="dashboard-header">
-                <div class="user-info">
-                    <div class="user-avatar" id="agentAvatar">و</div>
-                    <div class="user-details">
-                        <h3 id="agentUserName">وكيل</h3>
-                        <span class="user-role agent" id="agentUserRole">وكيل</span>
-                    </div>
-                </div>
-                
-                <div class="stats-container">
-                    <div class="stat-item">
-                        <div class="stat-value" id="agentTotalOrders">0</div>
-                        <div class="stat-label">إجمالي الطلبات</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="agentPendingOrders">0</div>
-                        <div class="stat-label">طلبات معلقة</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="agentMyActions">0</div>
-                        <div class="stat-label">إجراءاتي</div>
-                    </div>
-                </div>
-                
-                <button class="btn btn-danger" onclick="logoutUser()">
-                    <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
-                </button>
-            </div>
-
-            <div class="action-buttons">
-                <input type="file" id="excelInput" accept=".xlsx, .xls" style="display: none;" onchange="handleFileUpload(event)">
-                
-                <button class="btn btn-outline" onclick="downloadTemplate()">
-                    <i class="fas fa-file-download"></i> تحميل النموذج
-                </button>
-                
-                <button class="btn btn-primary" onclick="document.getElementById('excelInput').click()">
-                    <i class="fas fa-file-upload"></i> رفع ملف إكسل
-                </button>
-                
-                <button class="btn btn-success" onclick="refreshAgentDashboard()">
-                    <i class="fas fa-redo"></i> تحديث
-                </button>
-            </div>
-
-            <div class="table-container">
-                <div class="table-header">
-                    <h3><i class="fas fa-list"></i> الطلبات المعلقة</h3>
-                    <div class="filters">
-                        <input type="text" id="agentSearchInput" placeholder="بحث..." onkeyup="filterAgentOrders()">
-                        <select id="agentBranchFilter" onchange="filterAgentOrders()">
-                            <option value="all">كل الفروع</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div style="overflow-x: auto;">
-                    <table id="agentOrderTable">
-                        <thead>
-                            <tr>
-                                <th>رقم الطلب</th>
-                                <th>العميل</th>
-                                <th>تاريخ الطلب</th>
-                                <th>المبلغ</th>
-                                <th>الفرع</th>
-                                <th>الوقت المنقضي</th>
-                                <th>الإجراءات</th>
-                            </tr>
-                        </thead>
-                        <tbody id="agentTableBody">
-                            <!-- الطلبات المعلقة فقط ستظهر هنا -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="table-container">
-                <div class="table-header">
-                    <h3><i class="fas fa-history"></i> إجراءاتي السابقة</h3>
-                </div>
-                
-                <div style="overflow-x: auto;">
-                    <table id="agentHistoryTable">
-                        <thead>
-                            <tr>
-                                <th>رقم الطلب</th>
-                                <th>الحالة الجديدة</th>
-                                <th>السبب</th>
-                                <th>التاريخ</th>
-                                <th>الوقت</th>
-                            </tr>
-                        </thead>
-                        <tbody id="agentHistoryBody">
-                            <!-- سجل إجراءات الوكيل ستظهر هنا -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Manager Dashboard -->
-        <div id="managerDashboard" class="dashboard">
-            <div class="dashboard-header">
-                <div class="user-info">
-                    <div class="user-avatar" id="managerAvatar">م</div>
-                    <div class="user-details">
-                        <h3 id="managerUserName">مدير</h3>
-                        <span class="user-role" id="managerUserRole">مدير</span>
-                    </div>
-                </div>
-                
-                <div class="stats-container">
-                    <div class="stat-item">
-                        <div class="stat-value" id="managerTotalOrders">0</div>
-                        <div class="stat-label">إجمالي الطلبات</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="managerDeliveredOrders">0</div>
-                        <div class="stat-label">تم التسليم</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="managerCancelledOrders">0</div>
-                        <div class="stat-label">ملغاة</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="managerActiveAgents">0</div>
-                        <div class="stat-label">وكلاء نشطين</div>
-                    </div>
-                </div>
-                
-                <button class="btn btn-danger" onclick="logoutUser()">
-                    <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
-                </button>
-            </div>
-
-            <div class="action-buttons">
-                <input type="file" id="managerExcelInput" accept=".xlsx, .xls" style="display: none;" onchange="handleManagerFileUpload(event)">
-                
-                <button class="btn btn-outline" onclick="downloadTemplate()">
-                    <i class="fas fa-file-download"></i> تحميل النموذج
-                </button>
-                
-                <button class="btn btn-primary" onclick="document.getElementById('managerExcelInput').click()">
-                    <i class="fas fa-file-upload"></i> رفع ملف إكسل
-                </button>
-                
-                <button class="btn btn-success" onclick="exportDailyReport()">
-                    <i class="fas fa-file-export"></i> تقرير يومي
-                </button>
-                
-                <button class="btn btn-manager" onclick="archiveDay()">
-                    <i class="fas fa-archive"></i> أرشفة اليوم
-                </button>
-            </div>
-
-            <div class="manager-panel">
-                <div class="manager-section">
-                    <h3><i class="fas fa-chart-bar"></i> نظرة عامة على اليوم</h3>
-                    <div id="dailySummary" style="line-height: 1.8; padding: 15px; background: #f8f9fa; border-radius: 10px;">
-                        <p>• إجمالي الطلبات المعالجة: <strong>0</strong></p>
-                        <p>• الطلبات المسلمة: <strong>0</strong> (<strong>0%</strong> معدل النجاح)</p>
-                        <p>• معدل الإلغاء: <strong>0%</strong></p>
-                        <p>• الوكلاء النشطين اليوم: <strong>0</strong></p>
-                        <p>• إجمالي الإجراءات المسجلة: <strong>0</strong></p>
-                    </div>
-                </div>
-                
-                <div class="manager-section">
-                    <h3><i class="fas fa-users"></i> أداء الوكلاء</h3>
-                    <div id="agentPerformance">
-                        <!-- أداء الوكلاء سيظهر هنا -->
-                    </div>
-                </div>
-            </div>
-
-            <div class="table-container">
-                <div class="table-header">
-                    <h3><i class="fas fa-list-alt"></i> جميع الطلبات</h3>
-                    <div class="filters">
-                        <input type="text" id="managerSearchInput" placeholder="بحث..." onkeyup="filterManagerOrders()">
-                        <select id="managerStatusFilter" onchange="filterManagerOrders()">
-                            <option value="all">كل الحالات</option>
-                            <option value="">معلقة</option>
-                            <option value="Delivered">مسلمة</option>
-                            <option value="Cancelled">ملغاة</option>
-                            <option value="Delayed">متأخرة</option>
-                        </select>
-                        <select id="managerAgentFilter" onchange="filterManagerOrders()">
-                            <option value="all">كل الوكلاء</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div style="overflow-x: auto;">
-                    <table id="managerOrderTable">
-                        <thead>
-                            <tr>
-                                <th>رقم الطلب</th>
-                                <th>العميل</th>
-                                <th>تاريخ الطلب</th>
-                                <th>المبلغ</th>
-                                <th>الفرع</th>
-                                <th>الحالة</th>
-                                <th>تم التحديث بواسطة</th>
-                                <th>تاريخ التحديث</th>
-                                <th>الوقت المنقضي</th>
-                                <th>السبب</th>
-                            </tr>
-                        </thead>
-                        <tbody id="managerTableBody">
-                            <!-- جميع الطلبات ستظهر هنا -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="table-container">
-                <div class="table-header">
-                    <h3><i class="fas fa-history"></i> سجل الإجراءات الكامل</h3>
-                </div>
-                
-                <div style="overflow-x: auto; max-height: 400px;">
-                    <table id="fullLogTable">
-                        <thead>
-                            <tr>
-                                <th>رقم الطلب</th>
-                                <th>الإجراء</th>
-                                <th>الوكيل</th>
-                                <th>التاريخ</th>
-                                <th>الوقت</th>
-                                <th>التفاصيل</th>
-                            </tr>
-                        </thead>
-                        <tbody id="fullLogBody">
-                            <!-- سجل الإجراءات الكامل سيظهر هنا -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // ================= التكوين الأساسي =================
-        const CONFIG = {
-            SHIFT_CODE: "OPERATIONS2024",
-            MANAGER_CODE: "MANAGER2024",
-            DELAY_THRESHOLD_WARNING: 40, // دقائق للتحذير
-            DELAY_THRESHOLD_CRITICAL: 45, // دقائق للتنبيه الحرج
-            WORKDAY_END_HOUR: 18, // 6 مساءً
-            WORKDAY_END_MINUTE: 0
-        };
-
-        // ================= الحالة العامة =================
-        let state = {
-            currentUser: null,
-            userRole: '', // 'agent' أو 'manager'
-            sessionStart: null,
-            allOrders: [],
-            actionLog: [],
-            agents: []
-        };
-
-        // ================= التهيئة =================
-        document.addEventListener('DOMContentLoaded', function() {
-            loadStateFromStorage();
-            
-            // النسخ الاحتياطي التلقائي كل دقيقة
-            setInterval(saveState, 60000);
-        });
-
-        function loadStateFromStorage() {
-            // تحميل جميع الطلبات من localStorage
-            const savedOrders = localStorage.getItem('ops_all_orders');
-            const savedLog = localStorage.getItem('ops_action_log');
-            const savedAgents = localStorage.getItem('ops_agents');
-            const savedUser = localStorage.getItem('ops_current_user');
-            
-            if (savedOrders) {
-                state.allOrders = JSON.parse(savedOrders);
-            }
-            
-            if (savedLog) {
-                state.actionLog = JSON.parse(savedLog);
-            }
-            
-            if (savedAgents) {
-                state.agents = JSON.parse(savedAgents);
-            }
-            
-            if (savedUser) {
-                const userData = JSON.parse(savedUser);
-                state.currentUser = userData.name;
-                state.userRole = userData.role;
-                state.sessionStart = new Date(userData.loginTime);
-                
-                showDashboard();
-            }
-        }
-
-        function saveState() {
-            // حفظ جميع البيانات في localStorage
-            localStorage.setItem('ops_all_orders', JSON.stringify(state.allOrders));
-            localStorage.setItem('ops_action_log', JSON.stringify(state.actionLog));
-            localStorage.setItem('ops_agents', JSON.stringify(state.agents));
-            
-            if (state.currentUser) {
-                localStorage.setItem('ops_current_user', JSON.stringify({
-                    name: state.currentUser,
-                    role: state.userRole,
-                    loginTime: state.sessionStart
-                }));
-            }
-        }
-
-        // ================= نظام تسجيل الدخول =================
-        function toggleRoleFields() {
-            const role = document.getElementById('userRole').value;
-            document.getElementById('agentFields').style.display = role === 'agent' ? 'block' : 'none';
-            document.getElementById('managerFields').style.display = role === 'manager' ? 'block' : 'none';
-            document.getElementById('loginBtn').innerHTML = `<i class="fas fa-sign-in-alt"></i> ${role === 'manager' ? 'تسجيل دخول المدير' : 'بدء التحول'}`;
-        }
-
-        function loginUser() {
-            const role = document.getElementById('userRole').value;
-            
-            if (!role) {
-                showToast('الرجاء اختيار الدور', 'warning');
-                return;
-            }
-            
-            if (role === 'agent') {
-                const name = document.getElementById('agentNameInput').value.trim();
-                const code = document.getElementById('shiftCodeInput').value.trim();
-                
-                if (!name) {
-                    showToast('الرجاء إدخال اسم الوكيل', 'warning');
-                    return;
-                }
-                
-                if (code !== CONFIG.SHIFT_CODE) {
-                    showToast('كود التحول غير صحيح', 'danger');
-                    return;
-                }
-                
-                state.currentUser = name;
-                state.userRole = 'agent';
-                
-                // إضافة الوكيل إلى قائمة الوكلاء إذا لم يكن موجوداً
-                if (!state.agents.includes(name)) {
-                    state.agents.push(name);
-                }
-            } else if (role === 'manager') {
-                const code = document.getElementById('managerCodeInput').value.trim();
-                
-                if (code !== CONFIG.MANAGER_CODE) {
-                    showToast('كود المدير غير صحيح', 'danger');
-                    return;
-                }
-                
-                state.currentUser = 'المدير';
-                state.userRole = 'manager';
-            }
-            
-            state.sessionStart = new Date();
-            saveState();
-            
-            showToast(`مرحباً، ${state.currentUser}!`, 'success');
-            showDashboard();
-        }
-
-        function demoLogin() {
-            state.currentUser = "وكيل تجريبي";
-            state.userRole = "agent";
-            
-            // إضافة الوكيل التجريبي إذا لم يكن موجوداً
-            if (!state.agents.includes(state.currentUser)) {
-                state.agents.push(state.currentUser);
-            }
-            
-            // تحميل بيانات تجريبية
-            loadDemoData();
-            
-            state.sessionStart = new Date();
-            saveState();
-            
-            showToast('تم تفعيل وضع التجربة', 'success');
-            showDashboard();
-        }
-
-        function logoutUser() {
-            if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
-                // حفظ الحالة الحالية قبل الخروج
-                saveState();
-                
-                localStorage.removeItem('ops_current_user');
-                showToast('تم تسجيل الخروج بنجاح', 'success');
-                setTimeout(() => location.reload(), 1000);
-            }
-        }
-
-        // ================= عرض لوحة التحكم =================
-        function showDashboard() {
-            document.getElementById('loginScreen').style.display = 'none';
-            
-            if (state.userRole === 'agent') {
-                document.getElementById('agentDashboard').classList.add('active');
-                document.getElementById('managerDashboard').classList.remove('active');
-                refreshAgentDashboard();
-            } else if (state.userRole === 'manager') {
-                document.getElementById('managerDashboard').classList.add('active');
-                document.getElementById('agentDashboard').classList.remove('active');
-                refreshManagerDashboard();
-            }
-            
-            // تحديث معلومات المستخدم
-            updateUserInfo();
-        }
-
-        function updateUserInfo() {
-            const initials = state.currentUser.split(' ').map(n => n[0]).join('').toUpperCase();
-            
-            if (state.userRole === 'agent') {
-                document.getElementById('agentAvatar').textContent = initials;
-                document.getElementById('agentUserName').textContent = state.currentUser;
-                document.getElementById('agentUserRole').textContent = 'وكيل';
-            } else {
-                document.getElementById('managerAvatar').textContent = initials;
-                document.getElementById('managerUserName').textContent = state.currentUser;
-                document.getElementById('managerUserRole').textContent = 'مدير';
-            }
-        }
-
-        // ================= لوحة الوكيل =================
-        function refreshAgentDashboard() {
-            updateAgentStats();
-            updateAgentOrdersTable();
-            updateAgentHistory();
-        }
-
-        function updateAgentStats() {
-            // الطلبات المعلقة فقط (الحالة فارغة)
-            const pendingOrders = state.allOrders.filter(order => order.Status === "" || !order.Status);
-            
-            // إجراءات الوكيل الحالي
-            const myActions = state.actionLog.filter(action => action.MarkedBy === state.currentUser);
-            
-            document.getElementById('agentTotalOrders').textContent = state.allOrders.length;
-            document.getElementById('agentPendingOrders').textContent = pendingOrders.length;
-            document.getElementById('agentMyActions').textContent = myActions.length;
-        }
-
-        function updateAgentOrdersTable() {
-            const tbody = document.getElementById('agentTableBody');
-            tbody.innerHTML = '';
-            
-            // الوكيل يرى فقط الطلبات غير المعلمة (الحالة فارغة)
-            const pendingOrders = state.allOrders.filter(order => 
-                (order.Status === "" || !order.Status) && 
-                !isOrderMarkedByCurrentAgent(order)
-            );
-            
-            const searchTerm = document.getElementById('agentSearchInput').value.toLowerCase();
-            const branchFilter = document.getElementById('agentBranchFilter').value;
-            const now = new Date().getTime();
-            
-            // تحديث قائمة الفروع
-            updateBranchFilter('agentBranchFilter', pendingOrders);
-            
-            const filteredOrders = pendingOrders.filter(order => {
-                const matchesSearch = searchTerm === '' || 
-                    order.OrderID.toLowerCase().includes(searchTerm) ||
-                    (order.Customer && order.Customer.toLowerCase().includes(searchTerm));
-                
-                const matchesBranch = branchFilter === 'all' || order.Branch === branchFilter;
-                
-                return matchesSearch && matchesBranch;
-            });
-            
-            if (filteredOrders.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-gray);">
-                            <i class="fas fa-check-circle" style="font-size: 2rem; margin-bottom: 10px; display: block; color: var(--success);"></i>
-                            <div>لا توجد طلبات معلقة حالياً</div>
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-            
-            filteredOrders.forEach(order => {
-                const tr = document.createElement('tr');
-                
-                // حساب الوقت المنقضي
-                const addedDate = order.AddedAt ? new Date(order.AddedAt) : new Date(order.OrderDate || Date.now());
-                const minutesPassed = Math.floor((now - addedDate.getTime()) / 60000);
-                
-                // تحديد فئة الوقت
-                let timeClass = 'time-normal';
-                if (minutesPassed >= CONFIG.DELAY_THRESHOLD_CRITICAL) {
-                    timeClass = 'time-critical';
-                } else if (minutesPassed >= CONFIG.DELAY_THRESHOLD_WARNING) {
-                    timeClass = 'time-warning';
-                }
-                
-                tr.innerHTML = `
-                    <td><strong>${order.OrderID}</strong></td>
-                    <td>${order.Customer || 'عميل غير معروف'}</td>
-                    <td>${addedDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                    <td>${order.Total ? `$${order.Total.toFixed(2)}` : '$0.00'}</td>
-                    <td><span class="status-badge">${order.Branch || 'غير محدد'}</span></td>
-                    <td>
-                        <span class="time-indicator ${timeClass}">
-                            ${minutesPassed} دقيقة
-                        </span>
-                    </td>
-                    <td>
-                        <div class="action-cell">
-                            <button class="btn-icon btn-icon-success" onclick="markOrderAs('${order.OrderID}', 'Delivered')" title="تم التسليم">
-                                <i class="fas fa-check"></i>
-                            </button>
-                            <button class="btn-icon btn-icon-danger" onclick="markOrderAs('${order.OrderID}', 'Cancelled')" title="إلغاء">
-                                <i class="fas fa-ban"></i>
-                            </button>
-                            <button class="btn-icon btn-icon-warning" onclick="markOrderAs('${order.OrderID}', 'Delayed')" title="تأخير">
-                                <i class="fas fa-clock"></i>
-                            </button>
-                        </div>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function isOrderMarkedByCurrentAgent(order) {
-            // التحقق إذا كان الطلب قد تم وسمه من قبل الوكيل الحالي
-            if (!order.MarkedBy) return false;
-            return order.MarkedBy === state.currentUser;
-        }
-
-        function updateAgentHistory() {
-            const tbody = document.getElementById('agentHistoryBody');
-            tbody.innerHTML = '';
-            
-            // عرض إجراءات الوكيل الحالي فقط
-            const myActions = state.actionLog
-                .filter(action => action.MarkedBy === state.currentUser)
-                .slice(-20) // آخر 20 إجراء
-                .reverse(); // الأحدث أولاً
-            
-            if (myActions.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="5" style="text-align: center; padding: 30px; color: var(--text-gray);">
-                            <i class="fas fa-history" style="font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.3;"></i>
-                            <div>لا توجد إجراءات سابقة</div>
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-            
-            myActions.forEach(action => {
-                const tr = document.createElement('tr');
-                const actionDate = new Date(action.Timestamp || action.AddedAt || Date.now());
-                
-                tr.innerHTML = `
-                    <td><strong>${action.OrderID}</strong></td>
-                    <td><span class="status-badge status-${action.Status.toLowerCase()}">${action.Status}</span></td>
-                    <td>${action.Reason || '-'}</td>
-                    <td>${actionDate.toLocaleDateString('ar-SA')}</td>
-                    <td>${actionDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function filterAgentOrders() {
-            updateAgentOrdersTable();
-        }
-
-        // ================= لوحة المدير =================
-        function refreshManagerDashboard() {
-            updateManagerStats();
-            updateManagerOrdersTable();
-            updateManagerLog();
-            updateAgentPerformance();
-        }
-
-        function updateManagerStats() {
-            const totalOrders = state.allOrders.length;
-            const deliveredOrders = state.allOrders.filter(o => o.Status === 'Delivered').length;
-            const cancelledOrders = state.allOrders.filter(o => o.Status === 'Cancelled').length;
-            
-            document.getElementById('managerTotalOrders').textContent = totalOrders;
-            document.getElementById('managerDeliveredOrders').textContent = deliveredOrders;
-            document.getElementById('managerCancelledOrders').textContent = cancelledOrders;
-            document.getElementById('managerActiveAgents').textContent = state.agents.length;
-            
-            // تحديث النظرة العامة
-            const pendingOrders = state.allOrders.filter(o => o.Status === "" || !o.Status).length;
-            const successRate = totalOrders > 0 ? Math.round((deliveredOrders / totalOrders) * 100) : 0;
-            const cancelRate = totalOrders > 0 ? Math.round((cancelledOrders / totalOrders) * 100) : 0;
-            
-            document.getElementById('dailySummary').innerHTML = `
-                <p>• إجمالي الطلبات المعالجة: <strong>${totalOrders}</strong></p>
-                <p>• الطلبات المسلمة: <strong>${deliveredOrders}</strong> (<strong>${successRate}%</strong> معدل النجاح)</p>
-                <p>• الطلبات المعلقة: <strong>${pendingOrders}</strong></p>
-                <p>• معدل الإلغاء: <strong>${cancelRate}%</strong></p>
-                <p>• الوكلاء النشطين: <strong>${state.agents.length}</strong></p>
-                <p>• إجمالي الإجراءات المسجلة: <strong>${state.actionLog.length}</strong></p>
-            `;
-        }
-
-        function updateManagerOrdersTable() {
-            const tbody = document.getElementById('managerTableBody');
-            tbody.innerHTML = '';
-            
-            const searchTerm = document.getElementById('managerSearchInput').value.toLowerCase();
-            const statusFilter = document.getElementById('managerStatusFilter').value;
-            const agentFilter = document.getElementById('managerAgentFilter').value;
-            const now = new Date().getTime();
-            
-            // تحديث قائمة الوكلاء
-            updateAgentFilter('managerAgentFilter');
-            
-            // تحديث قائمة الفروع للمدير إذا لزم الأمر
-            
-            const filteredOrders = state.allOrders.filter(order => {
-                const matchesSearch = searchTerm === '' || 
-                    order.OrderID.toLowerCase().includes(searchTerm) ||
-                    (order.Customer && order.Customer.toLowerCase().includes(searchTerm));
-                
-                const matchesStatus = statusFilter === 'all' || 
-                    (statusFilter === '' && (!order.Status || order.Status === "")) ||
-                    order.Status === statusFilter;
-                
-                const matchesAgent = agentFilter === 'all' || order.MarkedBy === agentFilter;
-                
-                return matchesSearch && matchesStatus && matchesAgent;
-            });
-            
-            if (filteredOrders.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="10" style="text-align: center; padding: 40px; color: var(--text-gray);">
-                            <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
-                            <div>لا توجد طلبات تطابق معايير البحث</div>
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-            
-            filteredOrders.forEach(order => {
-                const tr = document.createElement('tr');
-                
-                // تنسيق التواريخ
-                const orderDate = new Date(order.OrderDate || order.AddedAt || Date.now());
-                const updatedDate = order.Timestamp ? new Date(order.Timestamp) : null;
-                const minutesPassed = Math.floor((now - orderDate.getTime()) / 60000);
-                
-                // تحديد فئة الوقت
-                let timeClass = 'time-normal';
-                if (minutesPassed >= CONFIG.DELAY_THRESHOLD_CRITICAL) {
-                    timeClass = 'time-critical';
-                } else if (minutesPassed >= CONFIG.DELAY_THRESHOLD_WARNING) {
-                    timeClass = 'time-warning';
-                }
-                
-                // تحديد فئة الحالة
-                let statusClass = 'status-pending';
-                if (order.Status === 'Delivered') statusClass = 'status-delivered';
-                else if (order.Status === 'Cancelled') statusClass = 'status-cancelled';
-                else if (order.Status === 'Delayed') statusClass = 'status-delayed';
-                
-                tr.innerHTML = `
-                    <td><strong>${order.OrderID}</strong></td>
-                    <td>${order.Customer || 'عميل غير معروف'}</td>
-                    <td>${orderDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                    <td>${order.Total ? `$${order.Total.toFixed(2)}` : '$0.00'}</td>
-                    <td><span class="status-badge">${order.Branch || 'غير محدد'}</span></td>
-                    <td><span class="status-badge ${statusClass}">${order.Status || 'معلق'}</span></td>
-                    <td>${order.MarkedBy || '-'}</td>
-                    <td>${updatedDate ? updatedDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '-'}</td>
-                    <td>
-                        <span class="time-indicator ${timeClass}">
-                            ${minutesPassed} دقيقة
-                        </span>
-                    </td>
-                    <td style="max-width: 200px; font-size: 0.85rem;">${order.Reason || '-'}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function updateManagerLog() {
-            const tbody = document.getElementById('fullLogBody');
-            tbody.innerHTML = '';
-            
-            // عرض جميع الإجراءات، الأحدث أولاً
-            const allActions = state.actionLog.slice().reverse();
-            
-            if (allActions.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="6" style="text-align: center; padding: 30px; color: var(--text-gray);">
-                            <i class="fas fa-clipboard-list" style="font-size: 2rem; margin-bottom: 10px; display: block; opacity: 0.3;"></i>
-                            <div>لا توجد إجراءات مسجلة</div>
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-            
-            allActions.forEach(action => {
-                const tr = document.createElement('tr');
-                const actionDate = new Date(action.Timestamp || action.AddedAt || Date.now());
-                
-                tr.innerHTML = `
-                    <td><strong>${action.OrderID}</strong></td>
-                    <td>${action.Status || 'تحديث'}</td>
-                    <td>${action.MarkedBy || 'غير معروف'}</td>
-                    <td>${actionDate.toLocaleDateString('ar-SA')}</td>
-                    <td>${actionDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                    <td>${action.Reason || '-'}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function updateAgentPerformance() {
-            const container = document.getElementById('agentPerformance');
-            container.innerHTML = '';
-            
-            if (state.agents.length === 0) {
-                container.innerHTML = '<p style="color: var(--text-gray); text-align: center;">لا يوجد وكلاء نشطين</p>';
-                return;
-            }
-            
-            state.agents.forEach(agent => {
-                const agentActions = state.actionLog.filter(a => a.MarkedBy === agent);
-                const agentOrders = state.allOrders.filter(o => o.MarkedBy === agent);
-                
-                const div = document.createElement('div');
-                div.style.marginBottom = '15px';
-                div.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-                        <span><strong>${agent}</strong></span>
-                        <span>${agentActions.length} إجراء</span>
-                    </div>
-                    <div style="background: var(--border); height: 8px; border-radius: 4px; overflow: hidden;">
-                        <div style="width: ${Math.min(agentActions.length * 10, 100)}%; height: 100%; background: var(--primary);"></div>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
-        }
-
-        function updateAgentFilter(selectId) {
-            const select = document.getElementById(selectId);
-            const currentValue = select.value;
-            
-            select.innerHTML = '<option value="all">كل الوكلاء</option>';
-            state.agents.forEach(agent => {
-                select.innerHTML += `<option value="${agent}">${agent}</option>`;
-            });
-            
-            // الحفاظ على القيمة المحددة سابقاً
-            select.value = currentValue;
-        }
-
-        function updateBranchFilter(selectId, orders) {
-            const select = document.getElementById(selectId);
-            const currentValue = select.value;
-            
-            // استخراج الفروع الفريدة من الطلبات
-            const branches = [...new Set(orders.map(order => order.Branch || 'غير محدد'))];
-            
-            select.innerHTML = '<option value="all">كل الفروع</option>';
-            branches.forEach(branch => {
-                select.innerHTML += `<option value="${branch}">${branch}</option>`;
-            });
-            
-            // الحفاظ على القيمة المحددة سابقاً
-            select.value = currentValue;
-        }
-
-        function filterManagerOrders() {
-            updateManagerOrdersTable();
-        }
-
-        // ================= معالجة الطلبات =================
-        function markOrderAs(orderId, status) {
-            if (state.userRole !== 'agent') {
-                showToast('يجب أن تكون وكيلاً لتحديث حالة الطلب', 'warning');
-                return;
-            }
-            
-            let reason = '';
-            if (status === 'Cancelled' || status === 'Delayed') {
-                reason = prompt(`يرجى إدخال سبب ${status === 'Cancelled' ? 'الإلغاء' : 'التأخير'}:`);
-                if (reason === null || reason.trim() === '') {
-                    showToast('يجب إدخال سبب', 'warning');
-                    return;
-                }
-                reason = reason.trim();
-            } else {
-                reason = 'تم التسليم بنجاح';
-            }
-            
-            // البحث عن الطلب
-            const orderIndex = state.allOrders.findIndex(o => o.OrderID === orderId);
-            if (orderIndex === -1) {
-                showToast('الطلب غير موجود', 'danger');
-                return;
-            }
-            
-            const order = state.allOrders[orderIndex];
-            const oldStatus = order.Status || '';
-            
-            // تحديث الطلب
-            order.Status = status;
-            order.MarkedBy = state.currentUser;
-            order.Timestamp = new Date().toISOString();
-            order.Reason = reason;
-            order.UpdatedAt = new Date().getTime();
-            
-            // إضافة إلى سجل الإجراءات
-            const action = {
-                OrderID: orderId,
-                Status: status,
-                MarkedBy: state.currentUser,
-                Timestamp: new Date().toISOString(),
-                Reason: reason,
-                AddedAt: new Date().getTime(),
-                OldStatus: oldStatus
-            };
-            
-            state.actionLog.push(action);
-            
-            // حفظ الحالة
-            saveState();
-            
-            // تحديث الواجهة
-            if (state.userRole === 'agent') {
-                refreshAgentDashboard();
-            } else {
-                refreshManagerDashboard();
-            }
-            
-            showToast(`تم تحديث الطلب ${orderId} إلى "${status}"`, 'success');
-        }
-
-        // ================= معالجة الملفات =================
-        function downloadTemplate() {
-            const templateData = [
-                ["OrderID", "Customer", "OrderDate", "Total", "Branch", "Status", "Reason", "MarkedBy", "Timestamp"],
-                ["ORD-1001", "أحمد علي", new Date().toISOString(), 150.00, "حمدان", "", "", "", ""],
-                ["ORD-1002", "فاطمة محمد", new Date(Date.now() - 3600000).toISOString(), 89.99, "خالدية", "Delivered", "تم التسليم في الوقت المحدد", "وكيل 1", new Date().toISOString()]
-            ];
-            
-            const ws = XLSX.utils.aoa_to_sheet(templateData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "الطلبات");
-            XLSX.writeFile(wb, "نموذج_الطلبات.xlsx");
-        }
-
-        function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    
-                    let jsonOrders = [];
-                    workbook.SheetNames.forEach(sheetName => {
-                        const sheet = workbook.Sheets[sheetName];
-                        const rows = XLSX.utils.sheet_to_json(sheet);
-                        jsonOrders = jsonOrders.concat(rows);
-                    });
-                    
-                    // معالجة وتنسيق البيانات
-                    const newOrders = jsonOrders.map((row, index) => {
-                        // البحث عن القيمة من مفاتيح مختلفة محتملة
-                        const getVal = (keys, defaultValue = '') => {
-                            for (let key of keys) {
-                                if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
-                                    return row[key];
-                                }
-                            }
-                            return defaultValue;
-                        };
-                        
-                        return {
-                            OrderID: getVal(['OrderID', 'Order no', 'id', 'ID', 'رقم الطلب'], `ORD-${1000 + index}`),
-                            Customer: getVal(['Customer', 'Cus. Name', 'Client', 'العميل'], 'عميل غير معروف'),
-                            OrderDate: getVal(['OrderDate', 'Date', 'Time', 'تاريخ الطلب'], new Date().toISOString()),
-                            Total: parseFloat(getVal(['Total', 'Amount', 'Order Total', 'المبلغ'], 0)) || 0,
-                            Branch: getVal(['Branch', 'Outlet', 'Location', 'الفرع'], 'غير محدد'),
-                            Status: getVal(['Status', 'status', 'Order Status', 'الحالة'], ''),
-                            Reason: getVal(['Reason', 'Notes', 'Comment', 'السبب'], ''),
-                            MarkedBy: getVal(['MarkedBy', 'Agent', 'Modified By', 'تم التحديث بواسطة'], ''),
-                            Timestamp: getVal(['Timestamp', 'Last Updated', 'تاريخ التحديث'], ''),
-                            AddedAt: new Date().getTime()
-                        };
-                    });
-                    
-                    // إضافة الطلبات الجديدة فقط (غير مكررة)
-                    newOrders.forEach(newOrder => {
-                        const existingIndex = state.allOrders.findIndex(o => o.OrderID === newOrder.OrderID);
-                        if (existingIndex === -1) {
-                            state.allOrders.push(newOrder);
-                        }
-                    });
-                    
-                    // إضافة إجراء الاستيراد إلى السجل
-                    const importAction = {
-                        OrderID: 'SYSTEM',
-                        Status: 'Import',
-                        MarkedBy: state.currentUser,
-                        Timestamp: new Date().toISOString(),
-                        Reason: `تم استيراد ${newOrders.length} طلب من الملف: ${file.name}`,
-                        AddedAt: new Date().getTime()
-                    };
-                    
-                    state.actionLog.push(importAction);
-                    
-                    // حفظ الحالة
-                    saveState();
-                    
-                    // تحديث الواجهة
-                    if (state.userRole === 'agent') {
-                        refreshAgentDashboard();
-                    } else {
-                        refreshManagerDashboard();
-                    }
-                    
-                    showToast(`تم استيراد ${newOrders.length} طلب بنجاح`, 'success');
-                } catch (error) {
-                    showToast('خطأ في معالجة الملف: ' + error.message, 'danger');
-                    console.error(error);
-                }
-            };
-            
-            reader.readAsArrayBuffer(file);
-        }
-
-        function handleManagerFileUpload(event) {
-            handleFileUpload(event);
-        }
-
-        // ================= بيانات تجريبية =================
-        function loadDemoData() {
-            const branches = ['حمدان', 'خالدية', 'مروع', 'شبهة', 'برشاء'];
-            const customers = ['أحمد علي', 'فاطمة محمد', 'محمد حسن', 'سارة أحمد', 'علي خالد'];
-            
-            const demoOrders = [];
-            const now = new Date();
-            
-            // إنشاء 20 طلب تجريبي
-            for (let i = 1; i <= 20; i++) {
-                const hoursAgo = Math.floor(Math.random() * 8);
-                const orderDate = new Date(now.getTime() - hoursAgo * 3600000);
-                const statuses = ['', 'Delivered', 'Cancelled', 'Delayed'];
-                const status = statuses[Math.floor(Math.random() * statuses.length)];
-                const markedBy = status !== '' ? (Math.random() > 0.5 ? 'وكيل 1' : 'وكيل 2') : '';
-                
-                demoOrders.push({
-                    OrderID: `ORD-DEMO-${1000 + i}`,
-                    Customer: customers[Math.floor(Math.random() * customers.length)],
-                    OrderDate: orderDate.toISOString(),
-                    Total: parseFloat((Math.random() * 200 + 20).toFixed(2)),
-                    Branch: branches[Math.floor(Math.random() * branches.length)],
-                    Status: status,
-                    Reason: status === 'Delivered' ? 'تم التسليم بنجاح' : 
-                           status === 'Cancelled' ? 'ألغى العميل الطلب' : 
-                           status === 'Delayed' ? 'تأخير في التسليم' : '',
-                    MarkedBy: markedBy,
-                    Timestamp: status !== '' ? orderDate.toISOString() : '',
-                    AddedAt: orderDate.getTime()
-                });
-            }
-            
-            // إضافة الطلبات التجريبية
-            demoOrders.forEach(order => {
-                const existingIndex = state.allOrders.findIndex(o => o.OrderID === order.OrderID);
-                if (existingIndex === -1) {
-                    state.allOrders.push(order);
-                }
-            });
-            
-            // إضافة بعض إجراءات الوكلاء
-            const demoActions = [
-                {
-                    OrderID: 'ORD-DEMO-1001',
-                    Status: 'Delivered',
-                    MarkedBy: 'وكيل 1',
-                    Timestamp: new Date(now.getTime() - 2 * 3600000).toISOString(),
-                    Reason: 'تم التسليم في الوقت المحدد',
-                    AddedAt: new Date(now.getTime() - 2 * 3600000).getTime()
-                },
-                {
-                    OrderID: 'ORD-DEMO-1003',
-                    Status: 'Cancelled',
-                    MarkedBy: 'وكيل 2',
-                    Timestamp: new Date(now.getTime() - 1 * 3600000).toISOString(),
-                    Reason: 'طلب العميل الإلغاء',
-                    AddedAt: new Date(now.getTime() - 1 * 3600000).getTime()
-                }
-            ];
-            
-            demoActions.forEach(action => {
-                const existingIndex = state.actionLog.findIndex(a => 
-                    a.OrderID === action.OrderID && a.Status === action.Status
-                );
-                if (existingIndex === -1) {
-                    state.actionLog.push(action);
-                }
-            });
-            
-            // إضافة وكلاء تجريبيين
-            if (!state.agents.includes('وكيل 1')) state.agents.push('وكيل 1');
-            if (!state.agents.includes('وكيل 2')) state.agents.push('وكيل 2');
-            
-            // حفظ الحالة
-            saveState();
-            
-            showToast('تم تحميل البيانات التجريبية بنجاح', 'success');
-        }
-
-        // ================= التقارير =================
-        function exportDailyReport() {
-            showLoading();
-            
-            try {
-                // إعداد البيانات
-                const reportData = {
-                    summary: {
-                        date: new Date().toLocaleDateString('ar-SA'),
-                        totalOrders: state.allOrders.length,
-                        delivered: state.allOrders.filter(o => o.Status === 'Delivered').length,
-                        delayed: state.allOrders.filter(o => o.Status === 'Delayed').length,
-                        cancelled: state.allOrders.filter(o => o.Status === 'Cancelled').length,
-                        pending: state.allOrders.filter(o => !o.Status || o.Status === "").length,
-                        activeAgents: state.agents.length,
-                        totalActions: state.actionLog.length,
-                        generatedBy: state.currentUser,
-                        generationTime: new Date().toISOString()
-                    },
-                    orders: state.allOrders,
-                    actions: state.actionLog,
-                    agents: state.agents.map(agent => {
-                        const agentActions = state.actionLog.filter(a => a.MarkedBy === agent);
-                        const agentOrders = state.allOrders.filter(o => o.MarkedBy === agent);
-                        return {
-                            agent: agent,
-                            actionCount: agentActions.length,
-                            orderCount: agentOrders.length,
-                            lastAction: agentActions.length > 0 ? 
-                                new Date(agentActions[agentActions.length - 1].Timestamp).toISOString() : ''
-                        };
-                    })
-                };
-                
-                // إنشاء ملف إكسل
-                const wb = XLSX.utils.book_new();
-                
-                // ورقة الملخص
-                const summaryRows = [
-                    ["تقرير العمليات اليومي", "", "", "", ""],
-                    ["التاريخ", reportData.summary.date, "", "", ""],
-                    ["تم الإنشاء بواسطة", reportData.summary.generatedBy, "", "", ""],
-                    ["وقت الإنشاء", new Date(reportData.summary.generationTime).toLocaleString(), "", "", ""],
-                    ["", "", "", "", ""],
-                    ["إحصائيات الملخص", "", "", "", ""],
-                    ["إجمالي الطلبات", reportData.summary.totalOrders, "", "", ""],
-                    ["الطلبات المسلمة", reportData.summary.delivered, "", "", ""],
-                    ["الطلبات المتأخرة", reportData.summary.delayed, "", "", ""],
-                    ["الطلبات الملغاة", reportData.summary.cancelled, "", "", ""],
-                    ["الطلبات المعلقة", reportData.summary.pending, "", "", ""],
-                    ["الوكلاء النشطين", reportData.summary.activeAgents, "", "", ""],
-                    ["إجمالي الإجراءات", reportData.summary.totalActions, "", "", ""],
-                    ["", "", "", "", ""],
-                    ["معدل النجاح", `${reportData.summary.totalOrders > 0 ? Math.round((reportData.summary.delivered / reportData.summary.totalOrders) * 100) : 0}%`, "", "", ""],
-                    ["معدل الإلغاء", `${reportData.summary.totalOrders > 0 ? Math.round((reportData.summary.cancelled / reportData.summary.totalOrders) * 100) : 0}%`, "", "", ""]
-                ];
-                
-                const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
-                XLSX.utils.book_append_sheet(wb, wsSummary, "الملخص");
-                
-                // ورقة الطلبات
-                const ordersSheet = XLSX.utils.json_to_sheet(reportData.orders);
-                XLSX.utils.book_append_sheet(wb, ordersSheet, "الطلبات");
-                
-                // ورقة الإجراءات
-                const actionsSheet = XLSX.utils.json_to_sheet(reportData.actions);
-                XLSX.utils.book_append_sheet(wb, actionsSheet, "الإجراءات");
-                
-                // ورقة الوكلاء
-                const agentsSheet = XLSX.utils.json_to_sheet(reportData.agents);
-                XLSX.utils.book_append_sheet(wb, agentsSheet, "الوكلاء");
-                
-                // إنشاء اسم الملف
-                const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-                const filename = `تقرير_يومي_${new Date().toISOString().split('T')[0]}_${timestamp}.xlsx`;
-                
-                XLSX.writeFile(wb, filename);
-                
-                hideLoading();
-                showToast(`تم تصدير التقرير اليومي: ${filename}`, 'success');
-            } catch (error) {
-                hideLoading();
-                showToast('خطأ في تصدير التقرير: ' + error.message, 'danger');
-                console.error(error);
-            }
-        }
-
-        function archiveDay() {
-            if (confirm('هل تريد أرشفة بيانات اليوم وبدء يوم جديد؟')) {
-                // إنشاء نسخة أرشيفية
-                const archiveData = {
-                    date: new Date().toISOString().split('T')[0],
-                    orders: [...state.allOrders],
-                    actions: [...state.actionLog],
-                    agents: [...state.agents],
-                    archivedAt: new Date().toISOString()
-                };
-                
-                // حفظ الأرشيف
-                const archive = JSON.parse(localStorage.getItem('ops_archive') || '[]');
-                archive.push(archiveData);
-                if (archive.length > 30) archive.shift(); // الاحتفاظ بآخر 30 يوم
-                localStorage.setItem('ops_archive', JSON.stringify(archive));
-                
-                // إعادة تعيين البيانات الحالية (الحفاظ على الهيكل)
-                state.allOrders = state.allOrders.map(order => ({
-                    ...order,
-                    Status: '',
-                    MarkedBy: '',
-                    Timestamp: '',
-                    Reason: '',
-                    UpdatedAt: null
-                }));
-                
-                // الاحتفاظ بسجل الإجراءات (للمدير)
-                // state.actionLog = []; // يمكن تفريغه إذا أردت
-                
-                // حفظ الحالة الجديدة
-                saveState();
-                
-                // تحديث الواجهة
-                if (state.userRole === 'manager') {
-                    refreshManagerDashboard();
-                }
-                
-                showToast('تم أرشفة بيانات اليوم وبدء يوم جديد', 'manager');
-            }
-        }
-
-        // ================= وظائف مساعدة =================
-        function showToast(message, type = 'info') {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            
-            const icons = {
-                success: 'check-circle',
-                warning: 'exclamation-triangle',
-                danger: 'times-circle',
-                info: 'info-circle',
-                manager: 'user-tie'
-            };
-            
-            toast.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
-                    <i class="fas fa-${icons[type] || 'info-circle'}" style="color: var(--${type});"></i>
-                    <div style="flex: 1;">
-                        <div style="font-weight: 600;">${message}</div>
-                    </div>
-                    <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; color: var(--text-gray); cursor: pointer;">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            `;
-            
-            container.appendChild(toast);
-            
-            // الإزالة التلقائية بعد 5 ثواني
-            setTimeout(() => {
-                if (toast.parentElement) {
-                    toast.remove();
-                }
-            }, 5000);
-        }
-
-        function showLoading() {
-            document.getElementById('loadingOverlay').style.display = 'flex';
-        }
-
-        function hideLoading() {
-            document.getElementById('loadingOverlay').style.display = 'none';
-        }
-
-        // تحميل الحالة عند البدء
         loadStateFromStorage();
     </script>
 </body>
